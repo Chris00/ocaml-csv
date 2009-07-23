@@ -5,14 +5,9 @@ XARCHIVE := $(shell grep "archive(native)" ../META | sed -e \
 
 include ../Makefile.conf
 
-PP	   = #-pp "camlp4o pa_macro.cmo"
+PP	= #-pp "camlp4o pa_macro.cmo"
 
-INCLUDE		= -I ..
-OCAMLC_FLAGS	= -g -dtypes $(INCLUDE) $(ARCHIVE)
-OCAMLOPT_FLAGS := -inline 3 $(INCLUDE) $(XARCHIVE)
-
-OCAMLDOC_GEN = -html
-OCAMLDOC_FLAGS := $(OCAMLDOC_GEN)
+INCLUDE	= -I ..
 
 TESTS=test.ml
 
@@ -55,25 +50,25 @@ Make.bat:
 .SUFFIXES: .cmo .cmi .cmx .ml .mli
 
 %.cmi: %.mli
-	$(OCAMLC) $(OCAMLC_FLAGS) -c $<
+	$(OCAMLC) $(INCLUDE) $(OCAMLC_FLAGS) -c $<
 
 %.cmo: %.ml
-	$(OCAMLC) $(PP) $(OCAMLC_FLAGS) -c $<
+	$(OCAMLC) $(PP) $(INCLUDE) $(OCAMLC_FLAGS) -c $<
 
 %.cma: %.cmo
-	$(OCAMLC) $(PP) -a -o $@ $(OCAMLC_FLAGS) $<
+	$(OCAMLC) $(PP) -a -o $@ $(INCLUDE) $(OCAMLC_FLAGS) $<
 
 %.exe: %.cmo ../csv.cma
-	$(OCAMLC) -o $@ $(OCAMLC_FLAGS) $<
+	$(OCAMLC) -o $@ $(INCLUDE) $(OCAMLC_FLAGS) csv.cma $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(PP) $(OCAMLOPT_FLAGS) -c $<
+	$(OCAMLOPT) $(PP) $(INCLUDE) $(OCAMLOPT_FLAGS) -c $<
 
 %.cmxa: %.cmx
-	$(OCAMLOPT) $(PP) -a -o $@ $(OCAMLOPT_FLAGS) $<
+	$(OCAMLOPT) $(PP) -a -o $@ $(INCLUDE) $(OCAMLOPT_FLAGS) $<
 
 %.com: %.cmx ../csv.cmxa
-	$(OCAMLOPT) -o $@ $(OCAMLOPT_FLAGS) $<
+	$(OCAMLOPT) -o $@ $(INCLUDE) $(OCAMLOPT_FLAGS) csv.cmxa $<
 
 
 .PHONY: depend
