@@ -22,7 +22,7 @@
    - The files I need to deal with have a header which does not always
    reflect the data structure (say the first row are the names of
    neurones but there are two columns per name).  In other words I
-   want to be ablr to deal with heterogeneous files.
+   want to be able to deal with heterogeneous files.
 
    - I do not want to the the whole file at once (I may but I just
    want to be able to choose).  Higher order functions like fold are
@@ -33,7 +33,7 @@
    and then use a type safe version would be nice.
 
    - Speed is not neglected (we would like to be able to parse a
-   ~2.5Mb file under 0.1 sec on my machine).
+   ~2.5Mb file under 0.1 sec on my machine (2GHz Core Duo)).
 
    We follow the CVS format documentation available at
    http://www.creativyst.com/Doc/Articles/CSV/CSV01.htm
@@ -55,22 +55,13 @@ end
 (* Specialize [min] to integers for performance reasons (> 150% faster). *)
 let min x y = if (x:int) <= y then x else y
 
-
 (*
  * Input
  *)
 
 exception Failure of int * int * string
 
-
-let is_space c = c = ' ' || c = '\t' (* See documentation *)
-
-(* Given a buffer, returns its content stripped of final whitespace. *)
-let strip_contents buf =
-  let n = ref(Buffer.length buf - 1) in
-  while !n >= 0 && is_space(Buffer.nth buf !n) do decr n done;
-  Buffer.sub buf 0 (!n + 1)
-
+let buffer_len = 0x1FFF
 
 (* We buffer the input as this allows the be efficient while using
    very basic input channels.  The drawback is that if we want to use
@@ -80,263 +71,316 @@ let strip_contents buf =
    handle as an object that is coercible to a input-object.
 
    FIXME: This is not made for non-blocking channels.  Can we fix it? *)
-class in_channel ?(delim=',') ?(excel_tricks=false) in_chan =
-object(self)
-  val in_chan = (in_chan: in_obj_channel)
-  val in_buf = String.create 0x1FFF; (* 8k *)
+type in_channel = {
+  in_chan : in_obj_channel;
+  in_buf : string;
   (* The data in the in_buf is at indexes i s.t. in0 <= i < in1.
-     Invariant: 0 <= in0 ; in1 <= 0x1FFF (the buffer length)
-     in1 < 0 indicates a closed channel. *)
-  val mutable in0 = 0
-  val mutable in1 = 0
-  val mutable end_of_file = false
-    (* If we encounter an End_of_file exception, we set this flag to
-       avoid reading again because we do not know how the channel will
-       react past an end of file.  That allows us to assume that
-       reading past an end of file will keep raising End_of_file. *)
-  val current_field = Buffer.create 0xFF (* buffer reused to scan fields *)
-  val mutable record = [] (* The current record *)
-  val mutable record_n = 0 (* For error messages *)
-  val delim = delim
-  val excel_tricks = excel_tricks
+     Invariant: 0 <= in0 ; in1 <= buffer_len in1 < 0 indicates a
+     closed channel. *)
+  mutable in0 : int;
+  mutable in1 : int;
+  mutable end_of_file : bool;
+  (* If we encounter an End_of_file exception, we set this flag to
+     avoid reading again because we do not know how the channel will
+     react past an end of file.  That allows us to assume that
+     reading past an end of file will keep raising End_of_file. *)
+  current_field : Buffer.t; (* buffer reused to scan fields *)
+  mutable record : string list; (* The current record *)
+  mutable record_n : int; (* For error messages *)
+  delim : char;
+  excel_tricks : bool;
+}
 
-  method close_in() =
-    if in1 >= 0 then begin
-      in0 <- 0;
-      in1 <- -1;
-      in_chan#close_in(); (* may raise an exception *)
-    end
+let of_in_obj ?(delim=',') ?(excel_tricks=false) in_chan = {
+  in_chan = in_chan;
+  in_buf = String.create buffer_len;
+  in0 = 0;
+  in1 = 0;
+  end_of_file = false;
+  current_field = Buffer.create 0xFF;
+  record = [];
+  record_n = 0;
+  delim = delim;
+  excel_tricks = excel_tricks;
+}
 
-  (* [fill_in_buf chan] refills in_buf if needed (when empty).  After
-     this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
-     there is currently no bytes to read (for a non-blocking channel).
-
-     @raise End_of_file if there are no more bytes to read. *)
-  method private fill_in_buf =
-    if end_of_file then raise End_of_file;
-    if in0 >= in1 then begin
-      try
-        in0 <- 0;
-        in1 <- in_chan#input in_buf 0 0x1FFF;
-      with End_of_file ->
-        end_of_file <- true;
-        raise End_of_file
-    end
-
-  method private unsafe_input buf ofs len =
-    self#fill_in_buf;
-    let r = min len (in1 - in0) in
-    String.blit in_buf in0 buf ofs r;
-    in0 <- in0 + r;
-    r
-
-  method input s ofs len =
-    if ofs < 0 || len < 0 || ofs + len > String.length s
-    then invalid_arg "Csv.in_channel#input";
-    if in1 < 0 then raise(Sys_error "Bad file descriptor");
-    self#unsafe_input s ofs len
-
-  (* Return the next character but do not mark it as read. *)
-  method private unsafe_peek =
-    self#fill_in_buf;
-    String.unsafe_get in_buf in0
-
-  (* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
-     not considered an error -- just do nothing. *)
-  method private skip_CR =
-    try if self#unsafe_peek = '\n' then in0 <- in0 + 1
-    with End_of_file -> ()
-
-  (* Skip all spaces: after this [in0] is a non-space char.
-     @raise End_of_file *)
-  method private skip_spaces =
-    while in0 < in1 && is_space(String.unsafe_get in_buf in0) do
-      in0 <- in0 + 1
-    done;
-    while in0 >= in1 do
-      self#fill_in_buf;
-      while in0 < in1 && is_space(String.unsafe_get in_buf in0) do
-        in0 <- in0 + 1
-      done;
-    done
-
-  (* Unquoted field.  Read till a delimiter, a newline, or the
-     end of the file.  Skip the next delimiter or newline.
-     @return [true] if more fields follow, [false] if the record
-     is complete. *)
-  method private add_unquoted_field =
-    let rec examine i =
-      if i >= in1 then (
-        (* End not found, need to look at the next chunk *)
-        Buffer.add_substring current_field in_buf in0 (i - in0);
-        in0 <- i;
-        self#fill_in_buf; (* or raise End_of_file *)
-        examine 0
-      )
-      else
-        let c = String.unsafe_get in_buf i in
-        if c = delim || c = '\n' || c = '\r' then (
-          Buffer.add_substring current_field in_buf in0 (i - in0);
-          in0 <- i + 1;
-          record <- (strip_contents current_field) :: record;
-          if c = '\r' then (self#skip_CR; false) else (c = delim)
-        )
-        else examine (i+1)
-    in
-    try examine in0
-    with End_of_file ->
-      record <- (strip_contents current_field) :: record;
-      false
-
-  (* Quoted field.  Read till a closing quote, a newline, or the end
-     of the file and decode the field.  Skip the next delimiter or
-     newline.  @return [true] if more fields follow, [false] if the
-     record is complete. *)
-  method private add_quoted_field field_no =
-    let after_quote = ref false in (* preserved through exn *)
-    let rec examine i =
-      if i >= in1 then (
-        (* End of field not found, need to look at the next chunk *)
-        Buffer.add_substring current_field in_buf in0 (i - in0);
-        in0 <- i;
-        self#fill_in_buf; (* or raise End_of_file *)
-        examine 0
-      )
-      else
-        let c = String.unsafe_get in_buf i in
-        if !after_quote then (
-          if c = '\"' then (
-            after_quote := false;
-            (* [c] is kept so a quote will be included in the field *)
-            examine (i+1)
-          )
-          else if c = delim || is_space c || c = '\n' || c = '\r' then (
-            seek_delim() (* field already saved; in0=i; after_quote=true *)
-          )
-          else if excel_tricks && c = '0' then (
-            (* Supposedly, '"' '0' means ASCII NULL *)
-            after_quote := false;
-            Buffer.add_char current_field '\000';
-            in0 <- i + 1; (* skip the '0' *)
-            examine (i+1)
-          )
-          else raise(Failure(record_n, field_no, "Bad '\"' in quoted field"))
-        )
-        else if c = '\"' then (
-          after_quote := true;
-          (* Save the field so far, without the quote *)
-          Buffer.add_substring current_field in_buf in0 (i - in0);
-          in0 <- i + 1; (* skip the quote *)
-          examine in0
-        )
-        else examine (i+1)
-    and seek_delim() =
-      self#fill_in_buf; (* or raise End_of_file *)
-      let c = String.unsafe_get in_buf in0 in
-      in0 <- in0 + 1;
-      if is_space c then seek_delim() (* skip space *)
-      else if c = delim || c = '\n' || c = '\r' then (
-        record <- Buffer.contents current_field :: record;
-        if c = '\r' then (self#skip_CR; false) else (c = delim)
-      )
-      else raise(Failure(record_n, field_no,
-                         "Non-space char after closing the quoted field"))
-    in
-    try examine in0
-    with End_of_file ->
-      (* Add the field even if not closed well *)
-      record <- Buffer.contents current_field :: record;
-      if !after_quote then false
-      else raise(Failure(record_n, field_no,
-                         "Quoted field closed by end of file"))
-
-  (* We suppose to be at the beginning of a field.  Add the next field
-     to [record].  @return [true] if more fields follow, [false] if
-     the record is complete.
-
-     Return  Failure (if there is a format error), End_of_line
-     (if the row is complete) or End_of_file (if there is not more
-     data to read). *)
-  method private add_next_field field_no =
-    Buffer.clear current_field;
-    try
-      self#skip_spaces; (* or raise End_of_file *)
-      let c = self#unsafe_peek in
-      if c = '\"' then (in0 <- in0 + 1; self#add_quoted_field field_no)
-      else if excel_tricks && c = '=' then begin
-        in0 <- in0 + 1; (* mark '=' as read *)
-        try
-          if self#unsafe_peek = '\"' then (
-            (* Excel trick ="..." to prevent spaces around the field
-               to be removed. *)
-            in0 <- in0 + 1; (* skip '"' *)
-            self#add_quoted_field field_no
-          )
-          else (
-            Buffer.add_char current_field '=';
-            self#add_unquoted_field
-          )
-        with End_of_file ->
-          record <-  "=" :: record;
-          false
-      end
-      else self#add_unquoted_field
-    with End_of_file ->
-      (* If it is the first field, coming from [next()], the field is
-         made of spaces.  If after the first, we are sure we read a
-         delimiter before (but maybe the field is empty).  Thus add en
-         empty field. *)
-      record <-  "" :: record;
-      false
-
-  method next() =
-    if in1 < 0 then raise(Sys_error "Bad file descriptor");
-    self#fill_in_buf; (* or End_of_file which means no more records *)
-    record <- [];
-    record_n <- record_n + 1; (* the current line being read *)
-    let more_fields = ref true
-    and field_no = ref 0 in
-    while !more_fields do
-      more_fields := self#add_next_field !field_no;
-      incr field_no;
-    done;
-    record <- List.rev record;
-    record
-
-
-  method current_record = record
-
-
-  method fold_left : 'a . ('a -> string list -> 'a) -> 'a -> 'a =
-    fun f a0 ->
-      let a = ref a0 in
-      try
-        while true do
-          a := f !a (self#next())
-        done;
-        assert false
-      with End_of_file -> !a
-
-  method fold_right : 'a . (string list -> 'a -> 'a) -> 'a -> 'a =
-    fun f a0 ->
-      (* We to collect all records before applying [f]. *)
-      let lr = self#fold_left (fun l r -> r :: l) [] in
-      List.fold_left (fun a r -> f r a) a0 lr
-
-end
-
-class of_channel ?delim ? excel_tricks fh =
-  in_channel ?delim ?excel_tricks
+let of_channel ?delim ? excel_tricks fh =
+  of_in_obj ?delim ?excel_tricks
     (object
        val fh = fh
        method input s ofs len =
          try
-           let r = input fh s ofs len in
+           let r = Pervasives.input fh s ofs len in
            if r = 0 then raise End_of_file;
            r
          with Sys_blocked_io -> 0
-       method close_in() = close_in fh
+       method close_in() = Pervasives.close_in fh
      end)
+
+
+(* [fill_in_buf chan] refills in_buf if needed (when empty).  After
+   this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
+   there is currently no bytes to read (for a non-blocking channel).
+
+   @raise End_of_file if there are no more bytes to read. *)
+let fill_in_buf ic =
+  if ic.end_of_file then raise End_of_file;
+  if ic.in0 >= ic.in1 then begin
+    try
+      ic.in0 <- 0;
+      ic.in1 <- ic.in_chan#input ic.in_buf 0 buffer_len;
+    with End_of_file ->
+      ic.end_of_file <- true;
+      raise End_of_file
+  end
+
+
+let close_in ic =
+  if ic.in1 >= 0 then begin
+    ic.in0 <- 0;
+    ic.in1 <- -1;
+    ic.in_chan#close_in(); (* may raise an exception *)
+  end
+
+
+let to_in_obj ic =
+object
+  val ic = ic
+
+  method input buf ofs len =
+    if ofs < 0 || len < 0 || ofs + len > String.length buf
+    then invalid_arg "Csv.to_in_obj#input";
+    if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
+    fill_in_buf ic;
+    let r = min len (ic.in1 - ic.in0) in
+    String.blit ic.in_buf ic.in0 buf ofs r;
+    ic.in0 <- ic.in0 + r;
+    r
+
+  method close_in() = close_in ic
+end
+
+(*
+ * CSV input format parsing
+ *)
+
+let is_space c = c = ' ' || c = '\t' (* See documentation *)
+
+(* Given a buffer, returns its content stripped of *final* whitespace. *)
+let strip_contents buf =
+  let n = ref(Buffer.length buf - 1) in
+  while !n >= 0 && is_space(Buffer.nth buf !n) do decr n done;
+  Buffer.sub buf 0 (!n + 1)
+
+(* Return the substring after stripping its final space.  It is
+   assumed the substring parameters are valid. *)
+let strip_substring buf ofs len =
+  let n = ref(ofs + len - 1) in
+  while !n >= ofs && is_space(String.unsafe_get buf !n) do decr n done;
+  String.sub buf ofs (!n - ofs + 1)
+
+
+(* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
+   not considered an error -- just do nothing. *)
+let skip_CR ic =
+  try
+    fill_in_buf ic;
+    if String.unsafe_get ic.in_buf ic.in0 = '\n' then ic.in0 <- ic.in0 + 1
+  with End_of_file -> ()
+
+
+(* Unquoted field.  Read till a delimiter, a newline, or the
+   end of the file.  Skip the next delimiter or newline.
+   @return [true] if more fields follow, [false] if the record
+   is complete. *)
+let rec seek_unquoted_delim ic i =
+  if i >= ic.in1 then (
+    (* End not found, need to look at the next chunk *)
+    Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    ic.in0 <- i;
+    fill_in_buf ic; (* or raise End_of_file *)
+    seek_unquoted_delim ic 0
+  )
+  else
+    let c = String.unsafe_get ic.in_buf i in
+    if c = ic.delim || c = '\n' || c = '\r' then (
+      if Buffer.length ic.current_field = 0 then
+        (* Avoid copying the string to the buffer if unnecessary *)
+        ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
+      else (
+        Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+        ic.record <- strip_contents ic.current_field :: ic.record;
+      );
+      ic.in0 <- i + 1;
+      if c = '\r' then (skip_CR ic; false) else (c = ic.delim)
+    )
+    else seek_unquoted_delim ic (i+1)
+
+let add_unquoted_field ic =
+  try seek_unquoted_delim ic ic.in0
+  with End_of_file ->
+    ic.record <- strip_contents ic.current_field :: ic.record;
+    false
+
+(* Quoted field.  Read till a closing quote, a newline, or the end
+   of the file and decode the field.  Skip the next delimiter or
+   newline.  @return [true] if more fields follow, [false] if the
+   record is complete. *)
+let rec seek_quoted_delim ic field_no =
+  fill_in_buf ic; (* or raise End_of_file *)
+  let c = String.unsafe_get ic.in_buf ic.in0 in
+  ic.in0 <- ic.in0 + 1;
+  if is_space c then seek_quoted_delim ic field_no (* skip space *)
+  else if c = ic.delim || c = '\n' || c = '\r' then (
+    ic.record <- Buffer.contents ic.current_field :: ic.record;
+    if c = '\r' then (skip_CR ic; false) else (c = ic.delim)
+  )
+  else raise(Failure(ic.record_n, field_no,
+                     "Non-space char after closing the quoted field"))
+
+let rec examine ic field_no after_quote i =
+  if i >= ic.in1 then (
+    (* End of field not found, need to look at the next chunk *)
+    Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    ic.in0 <- i;
+    fill_in_buf ic; (* or raise End_of_file *)
+    examine ic field_no after_quote 0
+  )
+  else
+    let c = String.unsafe_get ic.in_buf i in
+    if !after_quote then (
+      if c = '\"' then (
+        after_quote := false;
+        (* [c] is kept so a quote will be included in the field *)
+        examine ic field_no after_quote (i+1)
+      )
+      else if c = ic.delim || is_space c || c = '\n' || c = '\r' then (
+        seek_quoted_delim ic field_no (* field already saved; in0=i;
+                                         after_quote=true *)
+      )
+      else if ic.excel_tricks && c = '0' then (
+        (* Supposedly, '"' '0' means ASCII NULL *)
+        after_quote := false;
+        Buffer.add_char ic.current_field '\000';
+        ic.in0 <- i + 1; (* skip the '0' *)
+        examine ic field_no after_quote (i+1)
+      )
+      else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
+    )
+    else if c = '\"' then (
+      after_quote := true;
+      (* Save the field so far, without the quote *)
+      Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      ic.in0 <- i + 1; (* skip the quote *)
+      examine ic field_no after_quote ic.in0
+    )
+    else examine ic field_no after_quote (i+1)
+
+let add_quoted_field ic field_no =
+  let after_quote = ref false in (* preserved through exn *)
+  try examine ic field_no after_quote ic.in0
+  with End_of_file ->
+    (* Add the field even if not closed well *)
+    ic.record <- Buffer.contents ic.current_field :: ic.record;
+    if !after_quote then false
+    else raise(Failure(ic.record_n, field_no,
+                       "Quoted field closed by end of file"))
+
+
+let skip_spaces ic =
+  (* Skip spaces: after this [in0] is a non-space char. *)
+  while ic.in0 < ic.in1 && is_space(String.unsafe_get ic.in_buf ic.in0) do
+    ic.in0 <- ic.in0 + 1
+  done;
+  while ic.in0 >= ic.in1 do
+    fill_in_buf ic;
+    while ic.in0 < ic.in1 && is_space(String.unsafe_get ic.in_buf ic.in0) do
+      ic.in0 <- ic.in0 + 1
+    done;
+  done
+
+(* We suppose to be at the beginning of a field.  Add the next field
+   to [record].  @return [true] if more fields follow, [false] if
+   the record is complete.
+
+   Return  Failure (if there is a format error), End_of_line
+   (if the row is complete) or End_of_file (if there is not more
+   data to read). *)
+let add_next_field ic field_no =
+  Buffer.clear ic.current_field;
+  try
+    skip_spaces ic;
+    (* Now, in0 < in1 or raise End_of_file was raised *)
+    let c = String.unsafe_get ic.in_buf ic.in0 in
+    if c = '\"' then (
+      ic.in0 <- ic.in0 + 1;
+      add_quoted_field ic field_no
+    )
+    else if ic.excel_tricks && c = '=' then begin
+      ic.in0 <- ic.in0 + 1; (* mark '=' as read *)
+      try
+        fill_in_buf ic;
+        if String.unsafe_get ic.in_buf ic.in0 = '\"' then (
+          (* Excel trick ="..." to prevent spaces around the field
+             to be removed. *)
+          ic.in0 <- ic.in0 + 1; (* skip '"' *)
+          add_quoted_field ic field_no
+        )
+        else (
+          Buffer.add_char ic.current_field '=';
+          add_unquoted_field ic
+        )
+      with End_of_file ->
+        ic.record <-  "=" :: ic.record;
+        false
+    end
+    else add_unquoted_field ic
+  with End_of_file ->
+    (* If it is the first field, coming from [next()], the field is
+       made of spaces.  If after the first, we are sure we read a
+       delimiter before (but maybe the field is empty).  Thus add en
+       empty field. *)
+    ic.record <-  "" :: ic.record;
+    false
+
+let next ic =
+  if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
+  fill_in_buf ic; (* or End_of_file which means no more records *)
+  ic.record <- [];
+  ic.record_n <- ic.record_n + 1; (* the current line being read *)
+  let more_fields = ref true
+  and field_no = ref 0 in
+  while !more_fields do
+    more_fields := add_next_field ic !field_no;
+    incr field_no;
+  done;
+  ic.record <- List.rev ic.record;
+  ic.record
+
+
+let current_record ic = ic.record
+
+
+let fold_left f a0 ic =
+  let a = ref a0 in
+  try
+    while true do
+      a := f !a (next ic)
+    done;
+    assert false
+  with End_of_file -> !a
+
+let iter f ic =
+  try  while true do f (next ic) done;
+  with End_of_file -> ()
+
+let input_all ic =
+  List.rev(fold_left (fun l r -> r :: l) [] ic)
+
+let fold_right f ic a0 =
+  (* We to collect all records before applying [f] -- last row first. *)
+  let lr = fold_left (fun l r -> r :: l) [] ic in
+  List.fold_left (fun a r -> f r a) a0 lr
 
 
 
@@ -344,32 +388,100 @@ class of_channel ?delim ? excel_tricks fh =
  * Output
  *)
 
-class out_channel ?(delim=',') ?(excel_tricks=false) out_chan =
-object(self)
-  val out_chan = (out_chan: out_obj_channel)
-  val delim = String.make 1 delim
+(* FIXME: Rework this part *)
+type out_channel = {
+  out_chan : out_obj_channel;
+  out_delim : char;
+  out_delim_string : string;
+  out_excel_tricks : bool;
+}
 
-  method private write_escaped s =
-    ignore(out_chan#output s 0 (String.length s))
+let to_out_obj ?(delim=',') ?(excel_tricks=false) out_chan = {
+  out_chan = out_chan;
+  out_delim = delim;
+  out_delim_string = String.make 1 delim;
+  out_excel_tricks = excel_tricks;
+}
 
-  method write_record data =
-    List.fold_left (fun first field ->
-                      if first then ignore(out_chan#output delim 0 1);
-                      self#write_escaped field;
-                      false
-                   ) true data
-
-
-  (*   method printf fmt = *)
-
-  method close_out = out_chan#close_out
-end
-
-
-class to_channel ?delim ?excel_tricks fh =
-  out_channel ?delim ?excel_tricks
+let to_channel ?delim ?excel_tricks fh =
+  to_out_obj ?delim ?excel_tricks
     (object
        val fh = fh
        method output s ofs len = output fh s ofs len; len
        method close_out () = close_out fh
      end)
+
+let rec really_output oc s ofs len =
+  let w = oc.out_chan#output s ofs len in
+  if w < len then really_output oc s (ofs+w) (len-w)
+
+(* Determine whether the string s must be quoted and how many chars it
+   must be extended to contain the escaped values.  Return -1 if there
+   is no need to quote.  It is assumed that the string length [len]
+   is > 0. *)
+let must_quote delim excel_tricks s len =
+  let quote = ref(is_space(String.unsafe_get s 0)
+                  || is_space(String.unsafe_get s (len - 1))) in
+  let n = ref 0 in
+  for i = 0 to len - 1 do
+    let c = String.unsafe_get s i in
+    if c = delim || c = '\n' || c = '\r' then quote := true
+    else if c = '"' || (excel_tricks && c = '\000') then (
+      quote := true;
+      incr n)
+  done;
+  if !quote then !n else -1
+
+let need_excel_trick s len =
+  let c = String.unsafe_get s 0 in
+  is_space c || c = '0' || is_space(String.unsafe_get s (len - 1))
+
+(* Do some work to avoid quoting a field unless it is absolutely
+   required. *)
+let write_escaped oc field =
+  if String.length field > 0 then begin
+    let len = String.length field in
+    let use_excel_trick = oc.out_excel_tricks && need_excel_trick field len
+    and n = must_quote oc.out_delim oc.out_excel_tricks field len in
+    if n < 0 && not use_excel_trick then
+      really_output oc field 0 len
+    else (
+      let field =
+        if n = 0 then field
+        else (* There are some quotes to escape *)
+          let s = String.create (len + n) in
+          let j = ref 0 in
+          for i = 0 to len - 1 do
+            let c = String.unsafe_get field i in
+            if c = '"' then (
+              String.unsafe_set s !j '"'; incr j;
+              String.unsafe_set s !j '"'; incr j
+            )
+            else if oc.out_excel_tricks && c = '\000' then (
+              String.unsafe_set s !j '"'; incr j;
+              String.unsafe_set s !j '0'; incr j
+            )
+            else (String.unsafe_set s !j c; incr j)
+          done;
+          s
+      in
+      if use_excel_trick then really_output oc "=\"" 0 2
+      else really_output oc "\"" 0 1;
+      really_output oc field 0 (String.length field);
+      really_output oc "\"" 0 1
+    )
+  end
+
+let output_record oc = function
+  | [] ->
+      really_output oc "\n" 0 1
+  | [f] ->
+      write_escaped oc f;
+      really_output oc "\n" 0 1
+  | f :: tl ->
+      write_escaped oc f;
+      List.iter (fun f ->
+                   really_output oc oc.out_delim_string 0 1;
+                   write_escaped oc f;
+                ) tl;
+      really_output oc "\n" 0 1

@@ -17,6 +17,11 @@
    LICENSE for more details. *)
 
 
+(** Read and write the CSV (comma separated values) format. *)
+
+
+(** {2 Input/output objects} *)
+
 (** The most basic input object for best interoperability. *)
 class type in_obj_channel =
 object
@@ -51,73 +56,102 @@ end
 exception Failure of int * int * string
   (** [Failure(nrecord, nfield, msg)] is raised to indicate a parsing
       error for the field number [nfield] on the record number
-      [nrecord].  [msg] is a description of what is wrong. *)
+      [nrecord], the description [msg] says what is wrong. *)
 
-(** [new in_channel ?delim in_chan] creates a new "channel" to access
-    the data in CSV form available from the channel [in_chan].
+type in_channel
+  (** Stateful handle to input CSV files. *)
+
+val of_in_obj : ?delim:char -> ?excel_tricks:bool ->
+  in_obj_channel -> in_channel
+(** [of_in_obj ?delim ?excel_tricks in_chan] creates a new "channel"
+    to access the data in CSV form available from the channel [in_chan].
 
     @param delim What character the delimiter is.  The default is
     [','].  You should be aware however that, in the countries where
     comma is used as a decimal separator, Excel will use [';'] as the
-    separator. *)
-class in_channel : ?delim:char -> ?excel_tricks:bool -> in_obj_channel ->
-object
+    separator.
 
-  method next : unit -> string list
-    (** [#next()] returns the next record in the CSV file.
+    @param excel_tricks enables Excel tricks, namely the fact that '"'
+    followed by '0' in a quoted string means ASCII NULL and the fact
+    that a field of the form ="..." only returns the string inside the
+    quotes.  Default: [false].
+*)
 
-        @raise End_of_file if no more record can be read.
-
-        @raise Csv.Failure if the CSV format is not respected.  The
-        partial record read is available with [#current_record]. *)
-
-  method fold_left : ('a -> string list -> 'a) -> 'a -> 'a
-    (** [#fold_left f a] computes (f ... (f (f a r0) r1) ... rN) where
-        r1,...,rN are the records in the CSV file.  If [f] raises an
-        exception, the record available at that moment is accessible
-        through [#current_record]. *)
-
-  method fold_right : (string list -> 'a -> 'a) -> 'a -> 'a
-    (** [#fold_left f a] computes (f r1 ... (f rN-1 (f rN a)) ...)
-        where r1,...,rN-1, rN are the records in the CSV file.  All
-        records are read before applying [f] so this method is not
-        convenient if you file is large. *)
-
-  method current_record : string list
-    (** The current record under examination.  This is useful in order
-        to gather the parsed data in case of [Failure]. *)
-
-  method input : string -> int -> int -> int
-    (** See {!Csv.in_obj_channel.input}.  For efficiency reasons, this
-        object buffers the data from the original channel.  If you
-        want to examine the data by other means than the methods above
-        (say after a failure), you need to use this method in order
-        not to "loose" data in the buffer.
-
-        @raise Sys_error if the channel is closed.
-        @raise Invalid_argument if the parameters do not specify a
-        valid substring. *)
-
-  method close_in : unit -> unit
-    (** Closes the channel for input (the original channel is also
-        closed). *)
-end
-
-
-class of_channel : ?delim:char -> ?excel_tricks:bool ->
+val of_channel : ?delim:char -> ?excel_tricks:bool ->
   Pervasives.in_channel -> in_channel
+  (** Same as {!Csv.of_in_obj} except that the data is read from a
+      standard channel. *)
+
+val to_in_obj : in_channel -> in_obj_channel
+  (** For efficiency reasons, the [in_channel] buffers the data from
+      the original channel.  If you want to examine the data by other
+      means than the methods below (say after a failure), you need to
+      use this function in order not to "loose" data in the
+      buffer.  *)
+
+val close_in : in_channel -> unit
+  (** [close_in ic] closes the channel [ic].  the underlying channel
+      is closed as well. *)
+
+
+val next : in_channel -> string list
+  (** [next ic] returns the next record in the CSV file.
+
+      @raise End_of_file if no more record can be read.
+
+      @raise Csv.Failure if the CSV format is not respected.  The
+      partial record read is available with [#current_record]. *)
+
+val fold_left : ('a -> string list -> 'a) -> 'a -> in_channel -> 'a
+  (** [fold_left f a ic] computes (f ... (f (f a r0) r1) ... rN)
+      where r1,...,rN are the records in the CSV file.  If [f]
+      raises an exception, the record available at that moment is
+      accessible through {!Csv.current_record}. *)
+
+val fold_right : (string list -> 'a -> 'a) -> in_channel -> 'a -> 'a
+  (** [fold_right f ic a] computes (f r1 ... (f rN-1 (f rN a)) ...)
+      where r1,...,rN-1, rN are the records in the CSV file.  All
+      records are read before applying [f] so this method is not
+      convenient if your file is large. *)
+
+val iter : (string list -> unit) -> in_channel -> unit
+  (** [iter f ic] iterates [f] on all remaining records.  If [f]
+      raises an exception, the record available at that moment is
+      accessible through {!Csv.current_record}. *)
+
+val input_all : in_channel -> string list list
+  (** [input_all ic] return a list of the CSV records till the end of
+      the file. *)
+
+val current_record : in_channel -> string list
+  (** The current record under examination.  This is useful in order
+      to gather the parsed data in case of [Failure]. *)
+
 
 
 (** {2 Output} *)
 
-class out_channel : ?delim:char -> ?excel_tricks:bool -> out_obj_channel ->
-  object
-    method write_record : string list -> bool
-      (** [#write_row r] *)
+type out_channel
 
-    method close_out : unit -> unit
-      (** Flushes the buffer, if any, and closes the channel for output. *)
-  end
+val to_out_obj : ?delim:char -> ?excel_tricks:bool ->
+  out_obj_channel -> out_channel
+  (** [to_out_obj ?delim ?excel_tricks out_chan] creates a new "channel"
+      to output the data in CSV form.
 
-class to_channel : ?delim:char -> ?excel_tricks:bool ->
+      @param delim What character the delimiter is.  The default is [','].
+
+      @param excel_tricks enables Excel tricks, namely the fact that
+      '\000' is represented as '"' followed by '0' and the fact that a
+      field with leading or trailing spaces or a leading '0' will be
+      encoded as ="..."  (to avoid Excel "helping" you).  Default:
+      [false].  *)
+
+
+val to_channel : ?delim:char -> ?excel_tricks:bool ->
   Pervasives.out_channel -> out_channel
+  (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
+
+
+val output_record : out_channel -> string list -> unit
+  (** [output_record oc r] write the record [r] is CSV form to the
+      channel [oc]. *)
