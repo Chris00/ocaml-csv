@@ -1,6 +1,6 @@
 # Specifications for the Csv module                        -*-conf-*-
 name = "csv"
-version = "0.5"
+version = "0.6"
 description = "CSV format parser"
 requires = ""
 archive(byte) = "csv.cma"
