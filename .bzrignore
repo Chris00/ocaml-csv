@@ -1,0 +1,13 @@
+*.cmi
+*.cmo
+*.cma
+*.cmx
+*.cmxa
+*.annot
+*.log
+TAGS
+.depend.ocaml
+*.com
+*.aux
+*.out
+*.pdf
