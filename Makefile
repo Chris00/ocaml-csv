@@ -4,6 +4,7 @@ ARCHIVE := $(shell grep "archive(byte)" META | sed -e \
 		"s/.*\"\([^\"]*\)\".*/\1/")
 XARCHIVE := $(shell grep "archive(native)" META | sed -e \
 		"s/.*\"\([^\"]*\)\".*/\1/")
+PKG_TARBALL = $(PACKAGE)-$(VERSION).tar.gz
 
 include Makefile.conf
 
@@ -11,7 +12,7 @@ PP	   = #-pp "camlp4o pa_macro.cmo"
 
 INCLUDE		=
 OCAMLC_FLAGS	= -g -dtypes $(INCLUDE)
-OCAMLOPT_FLAGS := -inline 3 $(INCLUDE)
+OCAMLOPT_FLAGS  = -inline 3 $(INCLUDE)
 
 OCAMLDOC_GEN = -html
 OCAMLDOC_FLAGS := $(OCAMLDOC_GEN)
@@ -84,7 +85,8 @@ uninstall:
 # Make the tests
 .PHONY: tests
 tests: all
-	cd tests; $(MAKE) all
+	cd tests; $(MAKE) OCAMLC_FLAGS="$(OCAMLC_FLAGS)" \
+	  OCAMLOPT_FLAGS="$(OCAMLOPT_FLAGS)" all
 
 # Make.bat -- easy compilation on win32
 Make.bat:
@@ -102,8 +104,8 @@ dist: $(DISTFILES) Make.bat
 	mv Make.bat $(PACKAGE)-$(VERSION); \
 	cp -r $(DISTFILES) $(PACKAGE)-$(VERSION)/; \
 	tar --exclude "CVS" --exclude ".cvsignore" --exclude "*~" \
-	   --exclude "*.cm{i,x,o,xa}" --exclude "*.o" \
-	  -jcvf $(PKG_TARBALL) $(PACKAGE)-$(VERSION); \
+	  --exclude "*.cm{i,x,o,xa}" --exclude "*.o" \
+	  -zcvf $(PKG_TARBALL) $(PACKAGE)-$(VERSION); \
 	rm -rf $(PACKAGE)-$(VERSION)
 
 # Caml general dependencies
@@ -134,10 +136,9 @@ include .depend.ocaml
 ######################################################################
 .PHONY: clean distclean
 clean:
-	rm -f *~ *.cm{i,o,x,a,xa} *.annot *.{a,o} *.tmp gmon.out
-	rm -f *.html *.ps
-	rm -f Make.bat $(PACKAGE)-$(VERSION).tar.bz2
-	rm -rf $(DOC_DIR)
+	-$(RM) *~ *.cm{i,o,x,a,xa} *.annot *.{a,o} *.tmp gmon.out
+	-$(RM) *.html *.ps Make.bat $(PKG_TARBALL)
+	-$(RM) -r $(DOC_DIR)
 	if [ -d tests ]; then cd tests/; $(MAKE) clean; fi
 
 distclean: clean
