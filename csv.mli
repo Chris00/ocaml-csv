@@ -114,7 +114,7 @@ val fold_right : (string list -> 'a -> 'a) -> in_channel -> 'a -> 'a
       records are read before applying [f] so this method is not
       convenient if your file is large. *)
 
-val iter : (string list -> unit) -> in_channel -> unit
+val iter : f:(string list -> unit) -> in_channel -> unit
   (** [iter f ic] iterates [f] on all remaining records.  If [f]
       raises an exception, the record available at that moment is
       accessible through {!Csv.current_record}. *)

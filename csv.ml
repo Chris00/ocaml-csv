@@ -24,9 +24,9 @@
    neurones but there are two columns per name).  In other words I
    want to be able to deal with heterogeneous files.
 
-   - I do not want to the the whole file at once (I may but I just
-   want to be able to choose).  Higher order functions like fold are
-   fine provided the read stops at the line an exception is raised
+   - I do not want to read the the whole file at once (I may but I
+   just want to be able to choose).  Higher order functions like fold
+   are fine provided the read stops at the line an exception is raised
    (so it can be reread again).
 
    - For similarly encoded line, being able to specify once a decoder
@@ -370,7 +370,7 @@ let fold_left f a0 ic =
     assert false
   with End_of_file -> !a
 
-let iter f ic =
+let iter ~f ic =
   try  while true do f (next ic) done;
   with End_of_file -> ()
 
