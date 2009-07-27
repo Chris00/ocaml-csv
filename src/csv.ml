@@ -96,7 +96,7 @@ type in_channel = {
   excel_tricks : bool;
 }
 
-let of_in_obj ?(separator=',') ?(excel_tricks=false) in_chan = {
+let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
   in_chan = in_chan;
   in_buf = String.create buffer_len;
   in0 = 0;
@@ -389,7 +389,8 @@ let fold_right f ic a0 =
 
 
 let load ?separator ?excel_tricks fname =
-  let csv = of_channel ?separator ?excel_tricks (open_in fname) in
+  let fh = if fname = "-" then stdin else open_in fname in
+  let csv = of_channel ?separator ?excel_tricks fh in
   let t = input_all csv in
   close_in csv;
   t
@@ -516,8 +517,8 @@ let rec dropwhile f = function
 let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
   let rec empty_row = function
     | [] -> true
-    | x :: xs when x <> "" -> false
-    | x :: xs -> empty_row xs
+    | x :: _ when x <> "" -> false
+    | _ :: xs -> empty_row xs
   in
   let csv = if top then dropwhile empty_row csv else csv in
   let csv =
@@ -537,11 +538,11 @@ let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
     ) else csv in
 
   let empty_left_cell =
-    function [] -> true | x :: xs when x = "" -> true | _ -> false in
+    function [] -> true | x :: _ when x = "" -> true | _ -> false in
   let empty_left_col =
     List.fold_left (fun a row -> a && empty_left_cell row) true in
   let remove_left_col =
-    List.map (function [] -> [] | x :: xs -> xs) in
+    List.map (function [] -> [] | _ :: xs -> xs) in
   let rec loop csv =
     if empty_left_col csv then
       remove_left_col csv
