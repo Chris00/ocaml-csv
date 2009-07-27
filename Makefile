@@ -1,13 +1,15 @@
 ROOT=.
 include $(ROOT)/Makefile.conf
 
-.PHONY: default all opt byte native install uninstall htdoc doc examples
+.PHONY: default all opt byte native install uninstall htdoc doc tests examples
 default: byte opt
 all: byte
 opt: native
 htdoc: doc
 byte native install uninstall doc:
 	$(MAKE) -C src $@
+tests examples: byte
+	$(MAKE) -C $@
 
 csv.godiva: csv.godiva.in
 	@ sed -e "s/@PACKAGE@/$(PACKAGE)/" $< \
@@ -25,10 +27,6 @@ godi: csv.godiva
 tar:
 	bzr export /tmp/$(TARBALL) -r "tag:$(VERSION)"
 	@echo "Created tarball '/tmp/$(TARBALL)'."
-
-.PHONY: tests
-tests: byte
-	$(MAKE) -C tests
 
 .PHONY: web
 web: doc

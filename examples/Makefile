@@ -5,8 +5,7 @@ OCAMLINCLUDES = $(ROOT)/src
 LIBS_CMA  = csv.cma
 LIBS_CMXA = csv.cmxa
 
-default: test.exe
-	./$<
+default: example.exe csvtool.exe
 
 
 include $(ROOT)/Makefile.ocaml
