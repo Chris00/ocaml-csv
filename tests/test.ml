@@ -41,31 +41,31 @@ let () =
   do_testcsv
     "testcsv5.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns.";
-	"a second field"; "a third field" ];
+        "a second field"; "a third field" ];
       [ "a fourth field on a new line" ] ]
 let () =
   do_testcsv
     "testcsv6.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns\nand \000";
-	"a second field"; "a third field" ];
+        "a second field"; "a third field" ];
       [ "a fourth field on a new line" ] ]
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
-	       [ "f"; "g"; "h"; "i"; "" ];
-	       [ "" ];
-	       [ ] ] in
+               [ "f"; "g"; "h"; "i"; "" ];
+               [ "" ];
+               [ ] ] in
   let csv2 = Csv.trim ~top:false ~left:false ~right:true ~bottom:true csv1 in
   assert (Csv.compare csv1 csv2 = 0)
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
-	       [ "f"; "g"; "h"; "i"; "" ];
-	       [ "" ];
-	       [ ] ] in
+               [ "f"; "g"; "h"; "i"; "" ];
+               [ "" ];
+               [ ] ] in
   let csv2 = [ [ "a"; "b"; "c"; "d"; "" ];
-	       [ "f"; "g"; "h"; "i"; "" ];
-	       [ "" ];
-	       [ ] ] in
+               [ "f"; "g"; "h"; "i"; "" ];
+               [ "" ];
+               [ ] ] in
   assert (Csv.compare csv1 csv2 < 0)
 
 let () =
