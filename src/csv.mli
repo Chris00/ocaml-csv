@@ -176,3 +176,7 @@ val to_channel : ?separator:char -> ?excel_tricks:bool ->
 val output_record : out_channel -> string list -> unit
   (** [output_record oc r] write the record [r] is CSV form to the
       channel [oc]. *)
+
+
+val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
+  (** Print string list list - same as [save_out stdout] *)

@@ -496,3 +496,8 @@ let output_record oc = function
                    write_escaped oc f;
                 ) tl;
       really_output oc "\n" 0 1
+
+
+let print ?separator ?excel_tricks t =
+  let csv = to_channel ?separator ?excel_tricks stdout in
+  List.iter (fun r -> output_record csv r) t
