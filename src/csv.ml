@@ -512,8 +512,18 @@ let output_all oc t =
 
 let print ?separator ?excel_tricks t =
   let csv = to_channel ?separator ?excel_tricks stdout in
-  List.iter (fun r -> output_record csv r) t;
+  output_all csv t;
   flush stdout
+
+let save_out ?separator ?excel_tricks ch t =
+  let csv = to_channel ?separator ?excel_tricks ch in
+  output_all csv t
+
+let save ?separator ?excel_tricks fname t =
+  let ch = open_out fname in
+  let csv = to_channel ?separator ?excel_tricks ch in
+  output_all csv t;
+  close_out ch
 
 
 (*

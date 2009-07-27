@@ -183,7 +183,6 @@ val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
       [false].  *)
 
-
 val to_channel : ?separator:char -> ?excel_tricks:bool ->
   Pervasives.out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
@@ -197,8 +196,15 @@ val output_all : out_channel -> t -> unit
   (** [output_all oc csv] outputs all records in [csv] to the channel
       [oc]. *)
 
+val save_out : ?separator:char -> ?excel_tricks:bool ->
+  Pervasives.out_channel -> t -> unit
+  (** @deprecated Save string list list to a channel. *)
+
+val save : ?separator:char -> ?excel_tricks:bool -> string -> t -> unit
+  (** [save fname csv] Save the [csv] data to the file [fname]. *)
+
 val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
-  (** Print string list list - same as [save_out stdout] *)
+  (** Print the CSV data. *)
 
 
 (************************************************************************)
