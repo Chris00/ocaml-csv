@@ -526,6 +526,71 @@ let save ?separator ?excel_tricks fname t =
   close_out ch
 
 
+let save_out_readable chan csv =
+  (* Escape all the strings in the CSV file first. *)
+  (* XXX Why are we doing this?  I commented it out anyway.
+  let csv = List.map (List.map String.escaped) csv in
+  *)
+
+  (* Find the width of each column. *)
+  let widths =
+    (* Don't consider rows with only a single element - typically
+     * long titles.
+     *)
+    let csv = List.filter (function [_] -> false | _ -> true) csv in
+
+    (* Square the CSV file - makes the next step simpler to implement. *)
+    let csv = square csv in
+
+    match csv with
+      | [] -> []
+      | row1 :: rest ->
+          let lengths_row1 = List.map String.length row1 in
+          let lengths_rest = List.map (List.map String.length) rest in
+          let max2rows r1 r2 =
+            let rp =
+              try List.combine r1 r2
+              with
+                Invalid_argument "List.combine" ->
+                  failwith (sprintf "Csv.save_out_readable: internal error: \
+                              length r1 = %d, length r2 = %d"
+                              (List.length r1) (List.length r2)) in
+            List.map (fun ((a : int), (b : int)) -> max a b) rp
+          in
+          List.fold_left max2rows lengths_row1 lengths_rest in
+
+  (* Print out each cell at the correct width. *)
+  let rec repeat f = function
+    | 0 -> ()
+    | i -> f (); repeat f (i-1)
+  in
+  List.iter (
+    function
+    | [cell] ->                         (* Single column. *)
+        output_string chan cell;
+        output_char chan '\n'
+    | row ->                            (* Other. *)
+        (* Pair up each cell with its max width. *)
+        let row =
+          let rec loop = function
+            | ([], _) -> []
+            | (_, []) -> failwith "Csv.save_out_readable: internal error"
+            | (cell :: cells, width :: widths) ->
+                (cell, width) :: loop (cells, widths)
+          in
+          loop (row, widths) in
+        List.iter (
+          fun (cell, width) ->
+            output_string chan cell;
+            let n = String.length cell in
+            repeat (fun () -> output_char chan ' ') (width - n + 1)
+        ) row;
+        output_char chan '\n'
+  ) csv
+
+let print_readable = save_out_readable stdout
+
+
 (*
  * Acting on CSV data in memory
  *)
@@ -686,7 +751,7 @@ let rec concat = function
 
       (* Prepend the right CSV rows with the left CSV rows. *)
       List.map (
-	fun (left_row, right_row) -> List.append left_row right_row
+        fun (left_row, right_row) -> List.append left_row right_row
       ) (List.combine left_csv right_csv)
 
 let to_array csv =

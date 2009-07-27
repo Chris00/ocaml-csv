@@ -22,7 +22,7 @@
 
 (** Read and write the CSV (comma separated values) format.
 
-    @version 0.2
+    @version 1.2.0
     @author Richard Jones <rjones\@redhat.com>
     @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
  *)
@@ -205,6 +205,17 @@ val save : ?separator:char -> ?excel_tricks:bool -> string -> t -> unit
 
 val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
   (** Print the CSV data. *)
+
+val print_readable : t -> unit
+  (** Print the CSV data to [stdout] in a human-readable format.  Not
+      much is guaranteed about how the CSV is printed, except that it
+      will be easier to follow than a "raw" output done with
+      {!Csv.print}.  This is a one-way operation.  There is no easy way
+      to parse the output of this command back into CSV data.  *)
+
+val save_out_readable : out_channel -> t -> unit
+  (** As for {!Csv.print_readable}, allowing the output to be sent to
+      a channel.  *)
 
 
 (************************************************************************)
