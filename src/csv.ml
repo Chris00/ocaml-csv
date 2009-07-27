@@ -507,6 +507,8 @@ let output_record oc = function
                 ) tl;
       really_output oc "\n" 0 1
 
+let output_all oc t =
+  List.iter (fun r -> output_record oc r) t
 
 let print ?separator ?excel_tricks t =
   let csv = to_channel ?separator ?excel_tricks stdout in

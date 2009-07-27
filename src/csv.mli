@@ -165,7 +165,7 @@ val load_rows : ?separator:char -> ?excel_tricks:bool ->
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
       {!Csv.of_channel}. *)
 
-
+(************************************************************************)
 (** {2 Output} *)
 
 type out_channel
@@ -193,6 +193,9 @@ val output_record : out_channel -> string list -> unit
   (** [output_record oc r] write the record [r] is CSV form to the
       channel [oc]. *)
 
+val output_all : out_channel -> t -> unit
+  (** [output_all oc csv] outputs all records in [csv] to the channel
+      [oc]. *)
 
 val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
   (** Print string list list - same as [save_out stdout] *)
