@@ -553,3 +553,35 @@ let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
   let csv = if left then loop csv else csv in
 
   csv
+
+(* Compare two rows for semantic equality - ignoring any blank cells
+ * at the end of each row.
+ *)
+let rec compare_row (row1 : string list) row2 =
+  match row1, row2 with
+  | [], [] -> 0
+  | x :: xs, y :: ys ->
+      let c = compare x y in
+      if c <> 0 then c else compare_row xs ys
+  | "" :: xs , [] ->
+      compare_row xs []
+  | x :: xs, [] ->
+      1
+  | [], "" :: ys ->
+      compare_row [] ys
+  | [], y :: ys ->
+      -1
+
+(* Semantic equality for CSV files. *)
+let rec compare (csv1 : t) csv2 =
+  match csv1, csv2 with
+  | [], [] -> 0
+  | x :: xs, y :: ys ->
+      let c = compare_row x y in
+      if c <> 0 then c else compare xs ys
+  | x :: xs, [] ->
+      let c = compare_row x [] in
+      if c <> 0 then c else compare xs []
+  | [], y :: ys ->
+      let c = compare_row [] y in
+      if c <> 0 then c else compare [] ys

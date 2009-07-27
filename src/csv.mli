@@ -207,3 +207,10 @@ val trim : ?top:bool -> ?left:bool -> ?right:bool -> ?bottom:bool -> t -> t
   * [~left] considers the whole CSV structure, whereas [~right] considers
   * each row in isolation.
   *)
+
+
+val compare : t -> t -> int
+  (** Compare two CSV files for equality, ignoring blank cells at the
+      end of a row, and empty rows appended to one or the other.  This
+      is "semantic" equality - roughly speaking, the two CSV files
+      would look the same if opened in a spreadsheet program.  *)
