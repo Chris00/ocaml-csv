@@ -29,6 +29,8 @@
 
 
 type t = string list list
+    (** Representation of CSV data in memory. *)
+
 
 (** {2 Input/output objects} *)
 
@@ -106,6 +108,11 @@ val load : ?separator:char -> ?excel_tricks:bool-> string -> t
       that a field of the form ="..." only returns the string inside the
       quotes.  Default: [true].  *)
 
+val load_in : ?separator:char -> ?excel_tricks:bool ->
+  Pervasives.in_channel -> t
+  (** [load_in ch] loads a CSV file from the input channel [ch].
+      See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
+
 
 val to_in_obj : in_channel -> in_obj_channel
   (** For efficiency reasons, the [in_channel] buffers the data from
@@ -153,6 +160,11 @@ val current_record : in_channel -> string list
       to gather the parsed data in case of [Failure]. *)
 
 
+val load_rows : ?separator:char -> ?excel_tricks:bool ->
+  (string list -> unit) -> Pervasives.in_channel -> unit
+  (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
+      {!Csv.of_channel}. *)
+
 
 (** {2 Output} *)
 
@@ -186,35 +198,132 @@ val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
   (** Print string list list - same as [save_out stdout] *)
 
 
-(** {2 Functions acting on CSV structures loaded in memory} *)
+(************************************************************************)
+(** {2 Functions acting on CSV data loaded in memory} *)
+
+val lines : t -> int
+  (** Return the number of lines in a CSV data. *)
+
+val columns : t -> int
+  (** Work out the (maximum) number of columns in a CSV file.  Note
+      that each line may be a different length, so this finds the one
+      with the most columns.  *)
 
 val trim : ?top:bool -> ?left:bool -> ?right:bool -> ?bottom:bool -> t -> t
-(** This takes a CSV file and trims empty cells.
-  *
-  * All four of the option arguments ([~top], [~left], [~right], [~bottom])
-  * default to [true].
-  *
-  * The exact behaviour is:
-  *
-  * [~right]: If true, remove any empty cells at the right hand end of
-  * any row.  The number of columns in the resulting CSV structure will
-  * not necessarily be the same for each row.
-  *
-  * [~top]: If true, remove any empty rows (no cells, or containing just empty
-  * cells) from the top of the CSV structure.
-  *
-  * [~bottom]: If true, remove any empty rows from the bottom of the
-  * CSV structure.
-  *
-  * [~left]: If true, remove any empty columns from the left of the
-  * CSV structure.  Note that [~left] and [~right] are quite different:
-  * [~left] considers the whole CSV structure, whereas [~right] considers
-  * each row in isolation.
-  *)
+  (** This takes a CSV file and trims empty cells.
+   *
+   * All four of the option arguments ([~top], [~left], [~right], [~bottom])
+   * default to [true].
+   *
+   * The exact behaviour is:
+   *
+   * [~right]: If true, remove any empty cells at the right hand end of
+   * any row.  The number of columns in the resulting CSV structure will
+   * not necessarily be the same for each row.
+   *
+   * [~top]: If true, remove any empty rows (no cells, or containing just empty
+   * cells) from the top of the CSV structure.
+   *
+   * [~bottom]: If true, remove any empty rows from the bottom of the
+   * CSV structure.
+   *
+   * [~left]: If true, remove any empty columns from the left of the
+   * CSV structure.  Note that [~left] and [~right] are quite different:
+   * [~left] considers the whole CSV structure, whereas [~right] considers
+   * each row in isolation.
+   *)
 
+
+val square : t -> t
+  (** Make the CSV data "square" (actually rectangular).  This pads
+      out each row with empty cells so that all rows are the same
+      length as the longest row.  After this operation, every row will
+      have length {!Csv.columns}.  *)
+
+val is_square : t -> bool
+  (** Return true iff the CSV is "square" (actually rectangular).
+      This means that each row has the same number of cells.  *)
+
+val set_columns : int -> t -> t
+  (** [set_columns cols csv] makes the CSV data square by forcing the
+      width to the given number of [cols].  Any short rows are padded
+      with blank cells.  Any long rows are truncated.  *)
+
+val set_rows : int -> t -> t
+  (** [set_rows rows csv] makes the CSV data have exactly [rows] rows
+      by adding empty rows or truncating rows as necessary.
+
+      Note that [set_rows] does not make the CSV square.  If you want it
+      to be square, call either {!Csv.square} or {!Csv.set_columns}
+      after.  *)
+
+val set_size : int -> int -> t -> t
+  (** [set_size rows cols csv] makes the CSV data square by forcing
+      the size to [rows * cols], adding blank cells or truncating as
+      necessary.  It is the same as calling [set_columns cols
+      (set_rows rows csv)] *)
+
+val sub : int -> int -> int -> int -> t -> t
+  (** [sub r c rows cols csv] returns a subset of [csv].  The subset is
+      defined as having top left corner at row [r], column [c] (counting
+      from [0]) and being [rows] deep and [cols] wide.
+
+      The returned CSV will be "square".  *)
 
 val compare : t -> t -> int
   (** Compare two CSV files for equality, ignoring blank cells at the
       end of a row, and empty rows appended to one or the other.  This
       is "semantic" equality - roughly speaking, the two CSV files
       would look the same if opened in a spreadsheet program.  *)
+
+val concat : t list -> t
+  (** Concatenate CSV files so that they appear side by side, arranged
+      left to right across the page.  Each CSV file (except the final
+      one) is first squared.
+
+      (To concatenate CSV files so that they appear from top to
+      bottom, just use {!List.concat}).  *)
+
+val to_array : t -> string array array
+val of_array : string array array -> t
+  (** Convenience functions to convert to and from a matrix
+   representation.  [to_array] will produce a ragged matrix (not all
+   rows will have the same length) unless you call {!Csv.square}
+   first.  *)
+
+val associate : string list -> t -> (string * string) list list
+(** [associate header data] takes a block of data and converts each
+  * row in turn into an assoc list which maps column header to data cell.
+  *
+  * Typically a spreadsheet will have the format:
+  * {v
+  *   header1   header2   header3
+  *   data11    data12    data13
+  *   data21    data22    data23
+  *     ...
+  * v}
+  *
+  * This function arranges the data into a more usable form which is
+  * robust against changes in column ordering.  The output of the
+  * function is:
+  * {v
+  *   [ ["header1", "data11"; "header2", "data12"; "header3", "data13"];
+  *     ["header1", "data21"; "header2", "data22"; "header3", "data23"];
+  *     etc. ]
+  * v}
+  *
+  * Each row is turned into an assoc list (see [List.assoc]).
+  *
+  * If a row is too short, it is padded with empty cells ([""]).  If
+  * a row is too long, it is truncated.
+  *
+  * You would typically call this function as:
+  *
+  * {v
+  * let header, data = match csv with h :: d -> h, d | [] -> assert false;;
+  * let data = Csv.associate header data;;
+  * v}
+  *
+  * The header strings are shared, so the actual space in memory consumed
+  * by the spreadsheet is not much larger.
+  *)

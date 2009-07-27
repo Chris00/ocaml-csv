@@ -44,6 +44,9 @@
 
 type t = string list list
 
+(* Specialize to int for speed *)
+let max i j = if (i:int) < j then j else i
+
 
 class type in_obj_channel =
 object
@@ -395,6 +398,12 @@ let load ?separator ?excel_tricks fname =
   close_in csv;
   t
 
+let load_in ?separator ?excel_tricks ch =
+  input_all (of_channel ?separator ?excel_tricks ch)
+
+(* @deprecated *)
+let load_rows ?separator ?excel_tricks f ch =
+  iter f (of_channel ?separator ?excel_tricks ch)
 
 (*
  * Output
@@ -509,6 +518,12 @@ let print ?separator ?excel_tricks t =
  * Acting on CSV data in memory
  *)
 
+let lines = List.length
+
+let columns csv =
+  List.fold_left max 0 (List.map List.length csv)
+
+
 let rec dropwhile f = function
   | [] -> []
   | x :: xs when f x -> dropwhile f xs
@@ -555,6 +570,60 @@ let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
 
   csv
 
+let square csv =
+  let columns = columns csv in
+  List.map (
+    fun row ->
+      let n = List.length row in
+      let row = List.rev row in
+      let rec loop acc = function
+        | 0 -> acc
+        | i -> "" :: loop acc (i-1)
+      in
+      let row = loop row (columns - n) in
+      List.rev row
+  ) csv
+
+let is_square csv =
+  let columns = columns csv in
+  List.for_all (fun row -> List.length row = columns) csv
+
+let rec set_columns cols = function
+  | [] -> []
+  | r :: rs ->
+      let rec loop i cells =
+        if i < cols then (
+          match cells with
+          | [] -> "" :: loop (succ i) []
+          | c :: cs -> c :: loop (succ i) cs
+        )
+        else []
+      in
+      loop 0 r :: set_columns cols rs
+
+let rec set_rows rows csv =
+  if rows > 0 then (
+    match csv with
+    | [] -> [] :: set_rows (pred rows) []
+    | r :: rs -> r :: set_rows (pred rows) rs
+  )
+  else []
+
+let set_size rows cols csv =
+  set_columns cols (set_rows rows csv)
+
+(* from extlib: *)
+let rec drop n = function
+  | _ :: l when n > 0 -> drop (n-1) l
+  | l -> l
+
+let sub r c rows cols csv =
+  let csv = drop r csv in
+  let csv = List.map (drop c) csv in
+  let csv = set_rows rows csv in
+  let csv = set_columns cols csv in
+  csv
+
 (* Compare two rows for semantic equality - ignoring any blank cells
  * at the end of each row.
  *)
@@ -586,3 +655,43 @@ let rec compare (csv1 : t) csv2 =
   | [], y :: ys ->
       let c = compare_row [] y in
       if c <> 0 then c else compare [] ys
+
+(* Concatenate - arrange left to right. *)
+let rec concat = function
+  | [] -> []
+  | [csv] -> csv
+  | left_csv :: csvs ->
+      (* Concatenate the remaining CSV files. *)
+      let right_csv = concat csvs in
+
+      (* Set the height of the left and right CSVs to the same. *)
+      let nr_rows = max (lines left_csv) (lines right_csv) in
+      let left_csv = set_rows nr_rows left_csv in
+      let right_csv = set_rows nr_rows right_csv in
+
+      (* Square off the left CSV. *)
+      let left_csv = square left_csv in
+
+      (* Prepend the right CSV rows with the left CSV rows. *)
+      List.map (
+	fun (left_row, right_row) -> List.append left_row right_row
+      ) (List.combine left_csv right_csv)
+
+let to_array csv =
+  Array.of_list (List.map Array.of_list csv)
+
+let of_array csv =
+  List.map Array.to_list (Array.to_list csv)
+
+let associate header data =
+  let nr_cols = List.length header in
+  let rec trunc = function
+    | 0, _ -> []
+    | n, [] -> "" :: trunc (n-1, [])
+    | n, (x :: xs) -> x :: trunc (n-1, xs)
+  in
+  List.map (
+    fun row ->
+      let row = trunc (nr_cols, row) in
+      List.combine header row
+  ) data
