@@ -37,5 +37,4 @@ web: doc
 clean:
 	$(RM) $(wildcard *~ *.pdf *.ps *.png *.svg) csv.godiva
 	$(MAKE) -C src $@
-	$(MAKE) -C doc $@
 	$(MAKE) -C tests $@
