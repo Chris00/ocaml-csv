@@ -565,11 +565,11 @@ let rec compare_row (row1 : string list) row2 =
       if c <> 0 then c else compare_row xs ys
   | "" :: xs , [] ->
       compare_row xs []
-  | x :: xs, [] ->
+  | _ :: _, [] ->
       1
   | [], "" :: ys ->
       compare_row [] ys
-  | [], y :: ys ->
+  | [], _ :: _ ->
       -1
 
 (* Semantic equality for CSV files. *)

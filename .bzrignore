@@ -3,11 +3,8 @@
 *.cma
 *.cmx
 *.cmxa
+*.cmxs
 *.annot
-*.log
-TAGS
 .depend.ocaml
 *.com
-*.aux
-*.out
-*.pdf
+*.exe
