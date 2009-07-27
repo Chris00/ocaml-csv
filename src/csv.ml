@@ -87,11 +87,11 @@ type in_channel = {
   current_field : Buffer.t; (* buffer reused to scan fields *)
   mutable record : string list; (* The current record *)
   mutable record_n : int; (* For error messages *)
-  delim : char;
+  separator : char;
   excel_tricks : bool;
 }
 
-let of_in_obj ?(delim=',') ?(excel_tricks=false) in_chan = {
+let of_in_obj ?(separator=',') ?(excel_tricks=false) in_chan = {
   in_chan = in_chan;
   in_buf = String.create buffer_len;
   in0 = 0;
@@ -100,12 +100,12 @@ let of_in_obj ?(delim=',') ?(excel_tricks=false) in_chan = {
   current_field = Buffer.create 0xFF;
   record = [];
   record_n = 0;
-  delim = delim;
+  separator = separator;
   excel_tricks = excel_tricks;
 }
 
-let of_channel ?delim ? excel_tricks fh =
-  of_in_obj ?delim ?excel_tricks
+let of_channel ?separator ? excel_tricks fh =
+  of_in_obj ?separator ?excel_tricks
     (object
        val fh = fh
        method input s ofs len =
@@ -193,17 +193,17 @@ let skip_CR ic =
    end of the file.  Skip the next delimiter or newline.
    @return [true] if more fields follow, [false] if the record
    is complete. *)
-let rec seek_unquoted_delim ic i =
+let rec seek_unquoted_separator ic i =
   if i >= ic.in1 then (
     (* End not found, need to look at the next chunk *)
     Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
     fill_in_buf ic; (* or raise End_of_file *)
-    seek_unquoted_delim ic 0
+    seek_unquoted_separator ic 0
   )
   else
     let c = String.unsafe_get ic.in_buf i in
-    if c = ic.delim || c = '\n' || c = '\r' then (
+    if c = ic.separator || c = '\n' || c = '\r' then (
       if Buffer.length ic.current_field = 0 then
         (* Avoid copying the string to the buffer if unnecessary *)
         ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
@@ -212,12 +212,12 @@ let rec seek_unquoted_delim ic i =
         ic.record <- strip_contents ic.current_field :: ic.record;
       );
       ic.in0 <- i + 1;
-      if c = '\r' then (skip_CR ic; false) else (c = ic.delim)
+      if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
     )
-    else seek_unquoted_delim ic (i+1)
+    else seek_unquoted_separator ic (i+1)
 
 let add_unquoted_field ic =
-  try seek_unquoted_delim ic ic.in0
+  try seek_unquoted_separator ic ic.in0
   with End_of_file ->
     ic.record <- strip_contents ic.current_field :: ic.record;
     false
@@ -226,14 +226,14 @@ let add_unquoted_field ic =
    of the file and decode the field.  Skip the next delimiter or
    newline.  @return [true] if more fields follow, [false] if the
    record is complete. *)
-let rec seek_quoted_delim ic field_no =
+let rec seek_quoted_separator ic field_no =
   fill_in_buf ic; (* or raise End_of_file *)
   let c = String.unsafe_get ic.in_buf ic.in0 in
   ic.in0 <- ic.in0 + 1;
-  if is_space c then seek_quoted_delim ic field_no (* skip space *)
-  else if c = ic.delim || c = '\n' || c = '\r' then (
+  if is_space c then seek_quoted_separator ic field_no (* skip space *)
+  else if c = ic.separator || c = '\n' || c = '\r' then (
     ic.record <- Buffer.contents ic.current_field :: ic.record;
-    if c = '\r' then (skip_CR ic; false) else (c = ic.delim)
+    if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
   )
   else raise(Failure(ic.record_n, field_no,
                      "Non-space char after closing the quoted field"))
@@ -254,8 +254,8 @@ let rec examine ic field_no after_quote i =
         (* [c] is kept so a quote will be included in the field *)
         examine ic field_no after_quote (i+1)
       )
-      else if c = ic.delim || is_space c || c = '\n' || c = '\r' then (
-        seek_quoted_delim ic field_no (* field already saved; in0=i;
+      else if c = ic.separator || is_space c || c = '\n' || c = '\r' then (
+        seek_quoted_separator ic field_no (* field already saved; in0=i;
                                          after_quote=true *)
       )
       else if ic.excel_tricks && c = '0' then (
@@ -391,20 +391,20 @@ let fold_right f ic a0 =
 (* FIXME: Rework this part *)
 type out_channel = {
   out_chan : out_obj_channel;
-  out_delim : char;
-  out_delim_string : string;
+  out_separator : char;
+  out_separator_string : string;
   out_excel_tricks : bool;
 }
 
-let to_out_obj ?(delim=',') ?(excel_tricks=false) out_chan = {
+let to_out_obj ?(separator=',') ?(excel_tricks=false) out_chan = {
   out_chan = out_chan;
-  out_delim = delim;
-  out_delim_string = String.make 1 delim;
+  out_separator = separator;
+  out_separator_string = String.make 1 separator;
   out_excel_tricks = excel_tricks;
 }
 
-let to_channel ?delim ?excel_tricks fh =
-  to_out_obj ?delim ?excel_tricks
+let to_channel ?separator ?excel_tricks fh =
+  to_out_obj ?separator ?excel_tricks
     (object
        val fh = fh
        method output s ofs len = output fh s ofs len; len
@@ -419,13 +419,13 @@ let rec really_output oc s ofs len =
    must be extended to contain the escaped values.  Return -1 if there
    is no need to quote.  It is assumed that the string length [len]
    is > 0. *)
-let must_quote delim excel_tricks s len =
+let must_quote separator excel_tricks s len =
   let quote = ref(is_space(String.unsafe_get s 0)
                   || is_space(String.unsafe_get s (len - 1))) in
   let n = ref 0 in
   for i = 0 to len - 1 do
     let c = String.unsafe_get s i in
-    if c = delim || c = '\n' || c = '\r' then quote := true
+    if c = separator || c = '\n' || c = '\r' then quote := true
     else if c = '"' || (excel_tricks && c = '\000') then (
       quote := true;
       incr n)
@@ -442,7 +442,7 @@ let write_escaped oc field =
   if String.length field > 0 then begin
     let len = String.length field in
     let use_excel_trick = oc.out_excel_tricks && need_excel_trick field len
-    and n = must_quote oc.out_delim oc.out_excel_tricks field len in
+    and n = must_quote oc.out_separator oc.out_excel_tricks field len in
     if n < 0 && not use_excel_trick then
       really_output oc field 0 len
     else (
@@ -481,7 +481,7 @@ let output_record oc = function
   | f :: tl ->
       write_escaped oc f;
       List.iter (fun f ->
-                   really_output oc oc.out_delim_string 0 1;
+                   really_output oc oc.out_separator_string 0 1;
                    write_escaped oc f;
                 ) tl;
       really_output oc "\n" 0 1

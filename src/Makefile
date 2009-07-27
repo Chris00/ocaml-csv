@@ -3,7 +3,7 @@ include $(ROOT)/Makefile.conf
 
 # Native code versions must be installed if and only if make opt was
 # called previously (i.e. the files exist):
-INSTALL_FILES = cairo.mli $(wildcard *.cmi *.cma *.cmx *.a *.cmxa)
+INSTALL_FILES = csv.mli $(wildcard *.cmi *.cma *.cmx *.a *.cmxa)
 
 .PHONY: default all opt byte native
 default: opt
@@ -12,6 +12,8 @@ opt: native
 byte: csv.cma
 native: csv.cmxa
 
+csv.cma: csv.cmo
+csv.cmxa: csv.cmx
 
 .PHONY: install uninstall
 # TODO: copy HTML doc

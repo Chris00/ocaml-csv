@@ -65,9 +65,9 @@ exception Failure of int * int * string
 type in_channel
   (** Stateful handle to input CSV files. *)
 
-val of_in_obj : ?delim:char -> ?excel_tricks:bool ->
+val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
   in_obj_channel -> in_channel
-(** [of_in_obj ?delim ?excel_tricks in_chan] creates a new "channel"
+(** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
 
     @param delim What character the delimiter is.  The default is
@@ -81,7 +81,7 @@ val of_in_obj : ?delim:char -> ?excel_tricks:bool ->
     quotes.  Default: [false].
 *)
 
-val of_channel : ?delim:char -> ?excel_tricks:bool ->
+val of_channel : ?separator:char -> ?excel_tricks:bool ->
   Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
@@ -137,9 +137,9 @@ val current_record : in_channel -> string list
 
 type out_channel
 
-val to_out_obj : ?delim:char -> ?excel_tricks:bool ->
+val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
   out_obj_channel -> out_channel
-  (** [to_out_obj ?delim ?excel_tricks out_chan] creates a new "channel"
+  (** [to_out_obj ?separator ?excel_tricks out_chan] creates a new "channel"
       to output the data in CSV form.
 
       @param delim What character the delimiter is.  The default is [','].
@@ -151,7 +151,7 @@ val to_out_obj : ?delim:char -> ?excel_tricks:bool ->
       [false].  *)
 
 
-val to_channel : ?delim:char -> ?excel_tricks:bool ->
+val to_channel : ?separator:char -> ?excel_tricks:bool ->
   Pervasives.out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
 
