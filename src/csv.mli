@@ -17,7 +17,11 @@
    LICENSE for more details. *)
 
 
-(** Read and write the CSV (comma separated values) format. *)
+(** Read and write the CSV (comma separated values) format.
+
+    @version 0.1
+    @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
+ *)
 
 
 (** {2 Input/output objects} *)

@@ -1,0 +1,14 @@
+Package: godi-@PACKAGE@
+Version: @VERSION@
+Revision: 0
+Depends: godi-ocaml (>= 3.10), godi-findlib (>= 1.2)
+Build-Depends: godi-findlib (>= 1.2)
+Sources: http://forge.ocamlcore.org/frs/download.php/@DOWNLOAD@/@TARBALL@
+Homepage: http://pa-do.forge.ocamlcore.org/
+Maintainer: Christophe Troestler <Christophe.Troestler@umons.ac.be>
+Options: opt
+Docfiles: README, LICENSE
+Description: A pure OCaml library to read and write CSV files.
+All extensions used by Excel - eg. quotes, newlines, 8 bit characters in 
+fields, "0 etc. are supported.
+.
