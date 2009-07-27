@@ -24,6 +24,8 @@
  *)
 
 
+type t = string list list
+
 (** {2 Input/output objects} *)
 
 (** The most basic input object for best interoperability. *)
@@ -70,7 +72,7 @@ val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
 
-    @param delim What character the delimiter is.  The default is
+    @param separator What character the separator is.  The default is
     [','].  You should be aware however that, in the countries where
     comma is used as a decimal separator, Excel will use [';'] as the
     separator.
@@ -86,6 +88,21 @@ val of_channel : ?separator:char -> ?excel_tricks:bool ->
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
+val load : ?separator:char -> ?excel_tricks:bool-> string -> t
+  (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
+      then load from [stdin].
+
+      @param separator What character the separator is.  The default
+      is [','].  You should be aware however that, in the countries
+      where comma is used as a decimal separator, Excel will use [';']
+      as the separator.
+
+      @param excel_tricks enables Excel tricks, namely the fact that '"'
+      followed by '0' in a quoted string means ASCII NULL and the fact
+      that a field of the form ="..." only returns the string inside the
+      quotes.  Default: [false].  *)
+
+
 val to_in_obj : in_channel -> in_obj_channel
   (** For efficiency reasons, the [in_channel] buffers the data from
       the original channel.  If you want to examine the data by other
@@ -94,7 +111,7 @@ val to_in_obj : in_channel -> in_obj_channel
       buffer.  *)
 
 val close_in : in_channel -> unit
-  (** [close_in ic] closes the channel [ic].  the underlying channel
+  (** [close_in ic] closes the channel [ic].  The underlying channel
       is closed as well. *)
 
 
@@ -123,7 +140,7 @@ val iter : f:(string list -> unit) -> in_channel -> unit
       raises an exception, the record available at that moment is
       accessible through {!Csv.current_record}. *)
 
-val input_all : in_channel -> string list list
+val input_all : in_channel -> t
   (** [input_all ic] return a list of the CSV records till the end of
       the file. *)
 
@@ -142,7 +159,7 @@ val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
   (** [to_out_obj ?separator ?excel_tricks out_chan] creates a new "channel"
       to output the data in CSV form.
 
-      @param delim What character the delimiter is.  The default is [','].
+      @param separator What character the separator is.  The default is [','].
 
       @param excel_tricks enables Excel tricks, namely the fact that
       '\000' is represented as '"' followed by '0' and the fact that a

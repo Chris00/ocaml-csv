@@ -1,6 +1,9 @@
 (* File: csv.ml
 
-   Copyright (C) 2006
+   Copyright (C) 2005-2009
+
+     Richard Jones
+     email: rjones@redhat.com
 
      Christophe Troestler
      email: Christophe.Troestler@umh.ac.be
@@ -38,6 +41,8 @@
    We follow the CVS format documentation available at
    http://www.creativyst.com/Doc/Articles/CSV/CSV01.htm
 *)
+
+type t = string list list
 
 
 class type in_obj_channel =
@@ -382,6 +387,12 @@ let fold_right f ic a0 =
   let lr = fold_left (fun l r -> r :: l) [] ic in
   List.fold_left (fun a r -> f r a) a0 lr
 
+
+let load ?separator ?excel_tricks fname =
+  let csv = of_channel ?separator ?excel_tricks (open_in fname) in
+  let t = input_all csv in
+  close_in csv;
+  t
 
 
 (*
