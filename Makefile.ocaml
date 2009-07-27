@@ -1,7 +1,7 @@
 OCAMLFIND  = ocamlfind
 PP	   =
-OCAMLC     = ocamlc.opt
-OCAMLOPT   = ocamlopt.opt
+OCAMLC     = ocamlc
+OCAMLOPT   = ocamlopt
 OCAMLDEP   = ocamldep
 OCAMLDOC   = ocamldoc
 OCAMLMKLIB = ocamlmklib

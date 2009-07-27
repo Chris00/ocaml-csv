@@ -2,6 +2,9 @@
 
    Copyright (C) 2006
 
+     Richard Jones
+     email: rjones@redhat.com
+
      Christophe Troestler
      email: Christophe.Troestler@umh.ac.be
      WWW: http://math.umh.ac.be/an/software/
@@ -19,7 +22,8 @@
 
 (** Read and write the CSV (comma separated values) format.
 
-    @version 0.1
+    @version 0.2
+    @author Richard Jones <rjones\@redhat.com>
     @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
  *)
 
@@ -165,7 +169,7 @@ val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
       '\000' is represented as '"' followed by '0' and the fact that a
       field with leading or trailing spaces or a leading '0' will be
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
-      [true].  *)
+      [false].  *)
 
 
 val to_channel : ?separator:char -> ?excel_tricks:bool ->

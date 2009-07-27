@@ -2,7 +2,7 @@ open Printf
 
 let do_testcsv filename expected =
   try
-    let csv = Csv.load filename ~excel_tricks:true in
+    let csv = Csv.load filename in
     if csv <> expected then (
       printf "input file: %s\n" filename;
       printf "Csv library produced:\n";
@@ -11,8 +11,9 @@ let do_testcsv filename expected =
       Csv.print expected;
       failwith "failed"
     )
-  with e ->
-    printf "Loading the file %S raised %s" filename (Printexc.to_string e);
+  with Csv.Failure(nrow, nfield, err) ->
+    printf "The file %S line %i, field %i, does not conform to the CSV \
+      specifications: %s" filename nrow nfield err;
     failwith "failed"
 
 
@@ -49,6 +50,13 @@ let () =
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns\nand \000";
         "a second field"; "a third field" ];
       [ "a fourth field on a new line" ] ]
+
+let () =
+  do_testcsv
+    "testcsv7.csv"
+    [ [ "Initial"; "and"; "final"; ""; "spaces"; "do not matter" ];
+      [ " Quoted spaces "; "are"; " important " ] ]
+
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];

@@ -501,7 +501,8 @@ let output_record oc = function
 
 let print ?separator ?excel_tricks t =
   let csv = to_channel ?separator ?excel_tricks stdout in
-  List.iter (fun r -> output_record csv r) t
+  List.iter (fun r -> output_record csv r) t;
+  flush stdout
 
 
 (*

@@ -1,4 +1,5 @@
-include Makefile.conf
+ROOT=.
+include $(ROOT)/Makefile.conf
 
 .PHONY: default all opt byte native install uninstall htdoc doc examples
 default: byte opt
