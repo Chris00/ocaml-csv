@@ -507,6 +507,12 @@ let print ?separator ?excel_tricks t =
  * Acting on CSV data in memory
  *)
 
+let rec dropwhile f = function
+  | [] -> []
+  | x :: xs when f x -> dropwhile f xs
+  | xs -> xs
+
+
 let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
   let rec empty_row = function
     | [] -> true
