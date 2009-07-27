@@ -213,7 +213,7 @@ val print_readable : t -> unit
       {!Csv.print}.  This is a one-way operation.  There is no easy way
       to parse the output of this command back into CSV data.  *)
 
-val save_out_readable : out_channel -> t -> unit
+val save_out_readable : Pervasives.out_channel -> t -> unit
   (** As for {!Csv.print_readable}, allowing the output to be sent to
       a channel.  *)
 
