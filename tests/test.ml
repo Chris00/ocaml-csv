@@ -56,7 +56,9 @@ let () =
                [ "" ];
                [ ] ] in
   let csv2 = Csv.trim ~top:false ~left:false ~right:true ~bottom:true csv1 in
-  assert (Csv.compare csv1 csv2 = 0)
+  assert(compare csv1 csv2 <> 0);
+  assert(Csv.compare csv1 csv2 = 0)
+
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
                [ "f"; "g"; "h"; "i"; "" ];
