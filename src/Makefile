@@ -23,6 +23,12 @@ install: META $(INSTALL_FILES)
 uninstall:
 	ocamlfind remove $(PACKAGE)
 
+META: META.in
+	@ sed -e "s/@PACKAGE@/$(PACKAGE)/" $< \
+	| sed -e "s/@VERSION@/$(VERSION)/" > $@
+	@ echo "Updated \"$@\"."
+
+
 # Make.bat -- easy compilation on win32
 Make.bat:
 	$(MAKE) clean
