@@ -180,3 +180,30 @@ val output_record : out_channel -> string list -> unit
 
 val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
   (** Print string list list - same as [save_out stdout] *)
+
+
+(** {2 Functions acting on CSV structures loaded in memory} *)
+
+val trim : ?top:bool -> ?left:bool -> ?right:bool -> ?bottom:bool -> t -> t
+(** This takes a CSV file and trims empty cells.
+  *
+  * All four of the option arguments ([~top], [~left], [~right], [~bottom])
+  * default to [true].
+  *
+  * The exact behaviour is:
+  *
+  * [~right]: If true, remove any empty cells at the right hand end of
+  * any row.  The number of columns in the resulting CSV structure will
+  * not necessarily be the same for each row.
+  *
+  * [~top]: If true, remove any empty rows (no cells, or containing just empty
+  * cells) from the top of the CSV structure.
+  *
+  * [~bottom]: If true, remove any empty rows from the bottom of the
+  * CSV structure.
+  *
+  * [~left]: If true, remove any empty columns from the left of the
+  * CSV structure.  Note that [~left] and [~right] are quite different:
+  * [~left] considers the whole CSV structure, whereas [~right] considers
+  * each row in isolation.
+  *)

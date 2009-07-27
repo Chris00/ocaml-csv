@@ -501,3 +501,48 @@ let output_record oc = function
 let print ?separator ?excel_tricks t =
   let csv = to_channel ?separator ?excel_tricks stdout in
   List.iter (fun r -> output_record csv r) t
+
+
+(*
+ * Acting on CSV data in memory
+ *)
+
+let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
+  let rec empty_row = function
+    | [] -> true
+    | x :: xs when x <> "" -> false
+    | x :: xs -> empty_row xs
+  in
+  let csv = if top then dropwhile empty_row csv else csv in
+  let csv =
+    if right then
+      List.map (fun row ->
+                  let row = List.rev row in
+                  let row = dropwhile ((=) "") row in
+                  let row = List.rev row in
+                  row) csv
+    else csv in
+  let csv =
+    if bottom then (
+      let csv = List.rev csv in
+      let csv = dropwhile empty_row csv in
+      let csv = List.rev csv in
+      csv
+    ) else csv in
+
+  let empty_left_cell =
+    function [] -> true | x :: xs when x = "" -> true | _ -> false in
+  let empty_left_col =
+    List.fold_left (fun a row -> a && empty_left_cell row) true in
+  let remove_left_col =
+    List.map (function [] -> [] | x :: xs -> xs) in
+  let rec loop csv =
+    if empty_left_col csv then
+      remove_left_col csv
+    else
+      csv
+  in
+
+  let csv = if left then loop csv else csv in
+
+  csv
