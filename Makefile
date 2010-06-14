@@ -38,3 +38,4 @@ clean:
 	$(RM) -rf $(DOC_DIR)
 	$(MAKE) -C src $@
 	$(MAKE) -C tests $@
+	$(MAKE) -C examples $@

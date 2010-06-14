@@ -10,5 +10,8 @@ default: example.exe csvtool
 csvtool: csvtool.exe
 	cp $< $@
 
+clean::
+	$(RM) $(wildcard csvtool *.exe)
+
 
 include $(ROOT)/Makefile.ocaml
