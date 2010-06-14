@@ -15,6 +15,11 @@ native: csv.cmxa
 csv.cma: csv.cmo
 csv.cmxa: csv.cmx
 
+.PHONY: doc
+doc:
+	test -f $(DOC_DIR) || mkdir -p $(DOC_DIR)
+	$(OCAMLDOC) -html -d $(DOC_DIR) $(OCAMLDOC_FLAGS) $(wildcard *.mli)
+
 .PHONY: install uninstall
 # TODO: copy HTML doc
 install: META $(INSTALL_FILES)

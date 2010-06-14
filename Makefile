@@ -35,5 +35,6 @@ web: doc
 .PHONY: clean
 clean:
 	$(RM) $(wildcard *~ *.pdf *.ps *.png *.svg) csv.godiva
+	$(RM) -rf $(DOC_DIR)
 	$(MAKE) -C src $@
 	$(MAKE) -C tests $@

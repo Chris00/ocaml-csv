@@ -302,7 +302,7 @@ val concat : t list -> t
       one) is first squared.
 
       (To concatenate CSV files so that they appear from top to
-      bottom, just use {!List.concat}).  *)
+      bottom, just use [List.concat]).  *)
 
 val to_array : t -> string array array
 val of_array : string array array -> t
