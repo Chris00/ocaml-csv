@@ -1,8 +1,8 @@
 open Printf
 
-let do_testcsv filename expected =
+let do_testcsv ?separator filename expected =
   try
-    let csv = Csv.load filename in
+    let csv = Csv.load ?separator filename in
     if csv <> expected then (
       printf "input file: %s\n" filename;
       printf "Csv library produced:\n";
@@ -13,7 +13,7 @@ let do_testcsv filename expected =
     )
   with Csv.Failure(nrow, nfield, err) ->
     printf "The file %S line %i, field %i, does not conform to the CSV \
-      specifications: %s" filename nrow nfield err;
+      specifications: %s\n" filename nrow nfield err;
     failwith "failed"
 
 
@@ -57,6 +57,11 @@ let () =
     [ [ "Initial"; "and"; "final"; ""; "spaces"; "do not matter" ];
       [ " Quoted spaces "; "are"; " important " ] ]
 
+
+let () =
+  do_testcsv ~separator:'\t'
+    "testcsv8.csv"
+    [["Foo"; "Bar"]; ["Baz"; "Boof"]]
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];

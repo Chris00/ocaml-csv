@@ -112,7 +112,7 @@ let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
   excel_tricks = excel_tricks;
 }
 
-let of_channel ?separator ? excel_tricks fh =
+let of_channel ?separator ?excel_tricks fh =
   of_in_obj ?separator ?excel_tricks
     (object
        val fh = fh
@@ -230,19 +230,18 @@ let add_unquoted_field ic =
     ic.record <- strip_contents ic.current_field :: ic.record;
     false
 
-(* Quoted field.  Read till a closing quote, a newline, or the end
-   of the file and decode the field.  Skip the next delimiter or
-   newline.  @return [true] if more fields follow, [false] if the
-   record is complete. *)
+(* Quoted field closed.  Read past a separator or a newline and decode
+   the field or raise [End_of_file].  @return [true] if more fields
+   follow, [false] if the record is complete. *)
 let rec seek_quoted_separator ic field_no =
   fill_in_buf ic; (* or raise End_of_file *)
   let c = String.unsafe_get ic.in_buf ic.in0 in
   ic.in0 <- ic.in0 + 1;
-  if is_space c then seek_quoted_separator ic field_no (* skip space *)
-  else if c = ic.separator || c = '\n' || c = '\r' then (
+  if c = ic.separator || c = '\n' || c = '\r' then (
     ic.record <- Buffer.contents ic.current_field :: ic.record;
     if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
   )
+  else if is_space c then seek_quoted_separator ic field_no (* skip space *)
   else raise(Failure(ic.record_n, field_no,
                      "Non-space char after closing the quoted field"))
 
@@ -264,7 +263,7 @@ let rec examine ic field_no after_quote i =
       )
       else if c = ic.separator || is_space c || c = '\n' || c = '\r' then (
         seek_quoted_separator ic field_no (* field already saved; in0=i;
-                                         after_quote=true *)
+                                             after_quote=true *)
       )
       else if ic.excel_tricks && c = '0' then (
         (* Supposedly, '"' '0' means ASCII NULL *)
@@ -318,7 +317,7 @@ let add_next_field ic field_no =
   Buffer.clear ic.current_field;
   try
     skip_spaces ic;
-    (* Now, in0 < in1 or raise End_of_file was raised *)
+    (* Now, in0 < in1 or End_of_file was raised *)
     let c = String.unsafe_get ic.in_buf ic.in0 in
     if c = '\"' then (
       ic.in0 <- ic.in0 + 1;
