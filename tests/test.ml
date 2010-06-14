@@ -61,7 +61,7 @@ let () =
 let () =
   do_testcsv ~separator:'\t'
     "testcsv8.csv"
-    [["Foo"; "Bar"]; ["Baz"; "Boof"]]
+    [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]]
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];

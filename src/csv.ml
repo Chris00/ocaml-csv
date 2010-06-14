@@ -173,6 +173,7 @@ end
  *)
 
 let is_space c = c = ' ' || c = '\t' (* See documentation *)
+let is_real_space c = c = ' ' (* when separator = '\t' *)
 
 (* Given a buffer, returns its content stripped of *final* whitespace. *)
 let strip_contents buf =
@@ -245,13 +246,13 @@ let rec seek_quoted_separator ic field_no =
   else raise(Failure(ic.record_n, field_no,
                      "Non-space char after closing the quoted field"))
 
-let rec examine ic field_no after_quote i =
+let rec examine_quoted_field ic field_no after_quote i =
   if i >= ic.in1 then (
     (* End of field not found, need to look at the next chunk *)
     Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
     fill_in_buf ic; (* or raise End_of_file *)
-    examine ic field_no after_quote 0
+    examine_quoted_field ic field_no after_quote 0
   )
   else
     let c = String.unsafe_get ic.in_buf i in
@@ -259,7 +260,7 @@ let rec examine ic field_no after_quote i =
       if c = '\"' then (
         after_quote := false;
         (* [c] is kept so a quote will be included in the field *)
-        examine ic field_no after_quote (i+1)
+        examine_quoted_field ic field_no after_quote (i+1)
       )
       else if c = ic.separator || is_space c || c = '\n' || c = '\r' then (
         seek_quoted_separator ic field_no (* field already saved; in0=i;
@@ -270,7 +271,7 @@ let rec examine ic field_no after_quote i =
         after_quote := false;
         Buffer.add_char ic.current_field '\000';
         ic.in0 <- i + 1; (* skip the '0' *)
-        examine ic field_no after_quote (i+1)
+        examine_quoted_field ic field_no after_quote (i+1)
       )
       else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
     )
@@ -279,13 +280,13 @@ let rec examine ic field_no after_quote i =
       (* Save the field so far, without the quote *)
       Buffer.add_substring ic.current_field ic.in_buf ic.in0 (i - ic.in0);
       ic.in0 <- i + 1; (* skip the quote *)
-      examine ic field_no after_quote ic.in0
+      examine_quoted_field ic field_no after_quote ic.in0
     )
-    else examine ic field_no after_quote (i+1)
+    else examine_quoted_field ic field_no after_quote (i+1)
 
 let add_quoted_field ic field_no =
   let after_quote = ref false in (* preserved through exn *)
-  try examine ic field_no after_quote ic.in0
+  try examine_quoted_field ic field_no after_quote ic.in0
   with End_of_file ->
     (* Add the field even if not closed well *)
     ic.record <- Buffer.contents ic.current_field :: ic.record;
@@ -295,6 +296,7 @@ let add_quoted_field ic field_no =
 
 
 let skip_spaces ic =
+  let is_space = if ic.separator = '\t' then is_real_space else is_space in
   (* Skip spaces: after this [in0] is a non-space char. *)
   while ic.in0 < ic.in1 && is_space(String.unsafe_get ic.in_buf ic.in0) do
     ic.in0 <- ic.in0 + 1
