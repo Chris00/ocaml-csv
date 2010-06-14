@@ -1,0 +1,17 @@
+			      OCaml CSV
+
+Compile
+-------
+
+Type "make".  If the native compilers are not available on your
+platform, you can use "make byte".
+
+Install
+-------
+
+Type "make install".  This requires findlib.
+
+Uninstall
+---------
+
+Type "make uninstall".  Again, this relies on findlib.

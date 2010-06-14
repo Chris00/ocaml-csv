@@ -4,7 +4,7 @@ Revision: 0
 Depends: godi-ocaml (>= 3.10), godi-findlib (>= 1.2)
 Build-Depends: godi-findlib (>= 1.2)
 Sources: http://forge.ocamlcore.org/frs/download.php/@DOWNLOAD@/@TARBALL@
-Homepage: http://pa-do.forge.ocamlcore.org/
+Homepage: https://forge.ocamlcore.org/projects/csv/
 Maintainer: Christophe Troestler <Christophe.Troestler@umons.ac.be>
 Options: opt
 Docfiles: README, LICENSE
