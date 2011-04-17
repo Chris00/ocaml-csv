@@ -22,7 +22,7 @@
 
 (** Read and write the CSV (comma separated values) format.
 
-    @version 1.2.0
+    @version 1.2.1
     @author Richard Jones <rjones\@redhat.com>
     @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
  *)
