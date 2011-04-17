@@ -54,3 +54,8 @@ Test conformity
   Command: $test
   Run: true
 
+
+SourceRepository trunk
+  Type:       svn
+  Location:   svn://svn.forge.ocamlcore.org/svn/csv/trunk
+  Browser:    https://forge.ocamlcore.org/scm/browser.php?group_id=113
