@@ -4,9 +4,8 @@ PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 OCAMLFORGE_FILE_NO = 420
 
 DISTFILES   = LICENSE.txt AUTHORS.txt INSTALL.txt README.txt _oasis \
-  _tags META Makefile setup.ml API.odocl src/csv.mllib \
-  myocamlbuild.ml setup.ml $(wildcard src/*.ml) $(wildcard src/*.mli) \
-  $(wildcard examples/) $(wildcard tests/)
+  _tags src/META Makefile setup.ml myocamlbuild.ml API.odocl \
+  $(wildcard src/) $(wildcard examples/) $(wildcard tests/)
 
 WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
 
@@ -41,14 +40,14 @@ godi: csv.godiva
 	godiva $<
 
 # "Force" a tag to be defined for each released tarball
-dist tar: $(DISTFILES)
+dist tar: setup.ml
 	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
 	@ if [ -z "$(PKGVERSION)" ]; then \
 		echo "PKGVERSION not defined"; exit 1; fi
 	mkdir $(PKGNAME)-$(PKGVERSION)
 	cp -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
 	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
-	rm -rf $(PKGNAME)-$(PKGVERSION)
+	$(RM) -rf $(PKGNAME)-$(PKGVERSION)
 
 web: doc
 	$(MAKE) -C doc $@
