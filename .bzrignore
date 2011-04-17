@@ -1,3 +1,4 @@
+#							-*-conf-unix-*-
 *.cmi
 *.cmo
 *.cma
@@ -24,3 +25,6 @@ setup.data
 setup.log
 setup.ml
 src/csv.mllib
+API.docdir
+# Tarball
+*.tar.gz
