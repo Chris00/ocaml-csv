@@ -1,0 +1,41 @@
+(* OASIS_START *)
+(* DO NOT EDIT (digest: adc7cdab807208e17ace6925bc4ece46) *)
+This is the INSTALL file for the csv distribution.
+
+This package uses OASIS to generate its build system. See section OASIS for
+full information. 
+
+Dependencies
+============
+
+In order to compile this package, you will need:
+* ocaml for all, doc API
+* findlib
+
+Installing
+==========
+
+1. Uncompress source directory and got to the root of the package
+2. Run 'ocaml setup.ml -configure'
+3. Run 'ocaml setup.ml -build'
+4. Run 'ocaml setup.ml -install'
+
+Uninstalling
+============
+
+1. Go to the root of the package 
+2. Run 'ocaml setup.ml -uninstall'
+
+OASIS
+=====
+
+OASIS is a software that helps to write setup.ml using a simple '_oasis'
+configuration file. The generated setup only depends on standard OCaml
+installation, no additional library is required.
+
+(* OASIS_STOP *)
+
+Testing
+=======
+
+If you would like to run some tests, just issue 'ocaml setup.ml -test'.

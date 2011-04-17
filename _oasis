@@ -1,0 +1,56 @@
+#								-*-conf-*-
+OASISFormat: 0.2
+Name:        csv
+Version:     1.2.1
+Synopsis:    A pure OCaml library to read and write CSV files.
+Description: This is a pure OCaml library to read and write CSV files, 
+  including all extensions used by Excel — eg. quotes, newlines, 
+  8 bit characters in fields, \"0 etc.
+Authors:     Richard Jones, Christophe Troestler
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2), StdFiles (0.2)
+
+Library csv
+  Path:       src
+  BuildTools: ocamlbuild
+  Modules:    Csv
+  
+Document API
+  Title:           API reference for Csv
+  Type:            OCamlbuild (0.2)
+  InstallDir:      $docdir/api
+  BuildTools:      ocamldoc, ocamlbuild
+  XOCamlbuildPath: .
+  XOCamlbuildLibraries: csv
+
+# Examples
+Executable csvtool
+  Path:           examples/
+  MainIs:         csvtool.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Executable example
+  Path:           examples/
+  MainIs:         example.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+# Testing
+Executable test
+  Path:           tests/
+  MainIs:         test.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Test conformity
+  WorkingDirectory: tests/
+  Command: $test
+  Run: true
+

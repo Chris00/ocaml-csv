@@ -1,41 +1,63 @@
-ROOT=.
-include $(ROOT)/Makefile.conf
+PKGNAME	    = $(shell oasis query name)
+PKGVERSION  = $(shell oasis query version)
+PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
+OCAMLFORGE_FILE_NO = 420
 
-.PHONY: default all opt byte native install uninstall htdoc doc tests examples
-default: byte opt
-all: byte
-opt: native
-htdoc: doc
-byte native install uninstall doc:
-	$(MAKE) -C src $@
-tests examples: byte
-	$(MAKE) -C $@
+DISTFILES   = LICENSE.txt AUTHORS.txt INSTALL.txt README.txt _oasis \
+  _tags META Makefile setup.ml API.odocl src/csv.mllib \
+  myocamlbuild.ml setup.ml $(wildcard src/*.ml) $(wildcard src/*.mli) \
+  $(wildcard examples/) $(wildcard tests/)
+
+WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
+
+.PHONY: all byte native configure doc test install uninstall reinstall \
+  upload-doc
+
+all byte native: configure
+	ocaml setup.ml -build
+
+configure: setup.ml
+	ocaml $< -configure
+
+setup.ml: _oasis
+	oasis setup
+
+test doc install uninstall reinstall: all
+	ocaml setup.ml -$@
+
+upload-doc: doc
+	scp -C -p -r _build/API.docdir $(WEB)
 
 csv.godiva: csv.godiva.in
-	@ sed -e "s/@PACKAGE@/$(PACKAGE)/" $< \
-	| sed -e "s/@VERSION@/$(VERSION)/" \
-	| sed -e "s/@TARBALL@/$(TARBALL)/" \
+	@ sed -e "s/@PACKAGE@/$(PKGNAME)/" $< \
+	| sed -e "s/@VERSION@/$(PKGVERSION)/" \
+	| sed -e "s/@TARBALL@/$(PKG_TARBALL)/" \
 	| sed -e "s/@DOWNLOAD@/$(OCAMLFORGE_FILE_NO)/" > $@
 	@ echo "Updated \"$@\"."
 
 # Assume the environment variable $GODI_LOCALBASE is set
-.PHONY: godi
+.PHONY: godi tar dist web
 godi: csv.godiva
 	godiva $<
 
 # "Force" a tag to be defined for each released tarball
-tar:
-	bzr export /tmp/$(TARBALL) -r "tag:$(VERSION)"
-	@echo "Created tarball '/tmp/$(TARBALL)'."
+dist tar: $(DISTFILES)
+	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
+	@ if [ -z "$(PKGVERSION)" ]; then \
+		echo "PKGVERSION not defined"; exit 1; fi
+	mkdir $(PKGNAME)-$(PKGVERSION)
+	cp -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
+	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
+	rm -rf $(PKGNAME)-$(PKGVERSION)
 
-.PHONY: web
 web: doc
 	$(MAKE) -C doc $@
 
-.PHONY: clean
-clean:
-	$(RM) $(wildcard *~ *.pdf *.ps *.png *.svg) csv.godiva
-	$(RM) -rf $(DOC_DIR)
-	$(MAKE) -C src $@
-	$(MAKE) -C tests $@
-	$(MAKE) -C examples $@
+.PHONY: clean distclean
+clean::
+	ocaml setup.ml -clean
+	$(RM) $(PKG_TARBALL)
+
+distclean:
+	ocaml setup.ml -distclean
+	$(RM) $(wildcard *.ba[0-9] *.bak *~ *.odocl) setup.log
