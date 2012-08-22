@@ -28,7 +28,7 @@
 
 
 type t = string list list
-    (** Representation of CSV data in memory. *)
+(** Representation of CSV data in memory. *)
 
 
 (** {2 Input/output objects} *)
@@ -70,7 +70,7 @@ exception Failure of int * int * string
       [nrecord], the description [msg] says what is wrong. *)
 
 type in_channel
-  (** Stateful handle to input CSV files. *)
+(** Stateful handle to input CSV files. *)
 
 val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
   in_obj_channel -> in_channel

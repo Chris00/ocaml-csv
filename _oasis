@@ -1,7 +1,7 @@
 #								-*-conf-*-
 OASISFormat: 0.2
 Name:        csv
-Version:     1.2.2
+Version:     1.2.3
 Synopsis:    A pure OCaml library to read and write CSV files.
 Description: This is a pure OCaml library to read and write CSV files, 
   including all extensions used by Excel — eg. quotes, newlines, 
