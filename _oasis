@@ -1,5 +1,5 @@
 #								-*-conf-*-
-OASISFormat: 0.2
+OASISFormat: 0.3
 Name:        csv
 Version:     1.2.3
 Synopsis:    A pure OCaml library to read and write CSV files.
@@ -8,7 +8,7 @@ Description: This is a pure OCaml library to read and write CSV files,
   8 bit characters in fields, \"0 etc.
 Authors:     Richard Jones, Christophe Troestler
 License:     LGPL-2.1 with OCaml linking exception
-Plugins:     META (0.2), StdFiles (0.2)
+Plugins:     META (0.3), StdFiles (0.3)
 
 Library csv
   Path:       src
@@ -17,7 +17,7 @@ Library csv
   
 Document API
   Title:           API reference for Csv
-  Type:            OCamlbuild (0.2)
+  Type:            OCamlbuild (0.3)
   InstallDir:      $docdir/api
   BuildTools:      ocamldoc, ocamlbuild
   XOCamlbuildPath: .
