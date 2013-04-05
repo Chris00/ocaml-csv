@@ -4,10 +4,12 @@ Name:        csv
 Version:     1.2.4
 Synopsis:    A pure OCaml library to read and write CSV files.
 Description: This is a pure OCaml library to read and write CSV files, 
-  including all extensions used by Excel — eg. quotes, newlines, 
-  8 bit characters in fields, \"0 etc.
+  including all extensions used by Excel — e.g. quotes, newlines, 
+  8 bit characters in fields, \"0 etc.  The library comes with a handy 
+  command line tool called csvtool for handling CSV files from shell scripts.
 Authors:     Richard Jones, Christophe Troestler
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
+Categories:  http://database, http://science
 License:     LGPL-2.1 with OCaml linking exception
 Homepage:    https://forge.ocamlcore.org/projects/csv/
 Plugins:     META (0.3), StdFiles (0.3)
