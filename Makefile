@@ -1,7 +1,7 @@
 PKGNAME	    = $(shell oasis query name)
 PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
-OCAMLFORGE_FILE_NO = 978
+OCAMLFORGE_FILE_NO = 1148
 
 DISTFILES   = LICENSE.txt AUTHORS.txt INSTALL.txt README.txt _oasis \
   _tags src/META Makefile setup.ml myocamlbuild.ml API.odocl \
