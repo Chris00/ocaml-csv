@@ -34,7 +34,7 @@ Executable csvtool
   BuildDepends:   csv
   CompiledObject: best
   BuildTools:     ocamlbuild
-  Install:        false
+  Install:        true
 
 Executable example
   Path:           examples/
