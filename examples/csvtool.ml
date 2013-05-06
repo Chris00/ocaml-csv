@@ -164,6 +164,7 @@ let cmd_namedcols ~input_sep ~output_sep ~chan names files =
       let data = List.map (
         fun row -> List.map (fun name -> List.assoc name row) names
       ) data in
+      let data = names :: data in
       Csv.output_all (Csv.to_channel ~separator:output_sep chan) data
   ) files
 
