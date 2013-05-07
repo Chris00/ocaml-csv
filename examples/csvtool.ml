@@ -206,6 +206,26 @@ let cmd_cat ~input_sep ~output_sep ~chan files =
       if close then close_in in_chan
   ) files
 
+let cmd_paste ~input_sep ~output_sep ~chan files =
+  (* Return the 1st row, concatenation of all 1st rows; whether all
+     CSV files are empty; and the CSV files without their 1st row. *)
+  let rec add_columns = function
+    | [] -> ([], true, []) (* empty CSV file list *)
+    | [] :: csvs -> (* exhausted the first CSV file *)
+       let row, empty, csvs = add_columns csvs in
+       (row, empty, [] :: csvs)
+    | (r :: csv0) :: csvs ->
+       let row, empty, csvs = add_columns csvs in
+       (r @ row, false, csv0 :: csvs) in
+  let rec paste_rows csvs final_csv =
+    let row, empty, csvs = add_columns csvs in
+    if empty then List.rev final_csv
+    else paste_rows csvs (row :: final_csv)
+  in
+  let csvs = List.map (Csv.load ~separator:input_sep) files in
+  let csv = paste_rows csvs [] in
+  Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
+
 let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
   (* Avoid loading the whole file into memory. *)
   let f row =
@@ -469,6 +489,12 @@ Commands:
 
       Example: csvtool -t TAB -u COMMA cat input.tsv > output.csv
 
+  paste
+    Concatenate the columns of the files together and write them to the
+    output.
+
+      Example: csvtool paste input1.csv input2.csv > output.csv
+
   join <column-spec1> <column-spec2>
     Join (collate) multiple CSV files together.
 
@@ -646,6 +672,8 @@ let () =
          cmd_readable ~input_sep ~chan files
      | ("cat"|"concat") :: files ->
          cmd_cat ~input_sep ~output_sep ~chan files
+     | "paste" :: files ->
+         cmd_paste ~input_sep ~output_sep ~chan files
      | ("join"|"collate") :: colspec1 :: colspec2 :: ((_::_::_) as files) ->
          let colspec1 = parse_colspec ~count_zero colspec1 in
          let colspec2 = parse_colspec ~count_zero colspec2 in
