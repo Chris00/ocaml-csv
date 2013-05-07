@@ -28,7 +28,8 @@
 
 
 type t = string list list
-(** Representation of CSV data in memory. *)
+(** Representation of CSV data in memory.  This is a list of rows,
+    each row being a list of columns. *)
 
 
 (** {2 Input/output objects} *)
@@ -303,9 +304,13 @@ val concat : t list -> t
       (To concatenate CSV files so that they appear from top to
       bottom, just use [List.concat]).  *)
 
+val transpose : t -> t
+(** Permutes the lines and columns of the CSV data.  Nonexistent cells
+    become empty cells after transpose if they must be created. *)
+
 val to_array : t -> string array array
 val of_array : string array array -> t
-  (** Convenience functions to convert to and from a matrix
+(** Convenience functions to convert to and from a matrix
    representation.  [to_array] will produce a ragged matrix (not all
    rows will have the same length) unless you call {!Csv.square}
    first.  *)

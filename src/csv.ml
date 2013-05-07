@@ -689,6 +689,28 @@ let rec concat = function
         fun (left_row, right_row) -> List.append left_row right_row
       ) (List.combine left_csv right_csv)
 
+let transpose =
+  (* Suppose the CSV data is presented with the last row first.  Then
+     new rows may be constructed in a tail rec way.  We use mutable
+     rows in order to preserve tail recursiveness. *)
+  (* Return the new 1st row; whether all rows are empty. *)
+  let rec row_of_1st_col tr_row empty = function
+    | [] -> (tr_row, empty)     (* No more rows *)
+    | r :: rows ->
+       match !r with
+       | [] ->                           (* Last row empty *)
+          let tr_row = if tr_row = [] then tr_row else "" :: tr_row in
+          row_of_1st_col tr_row empty rows
+       | a :: tl ->
+          r := tl;
+          let tr_row = if a = "" && tr_row = [] then [] else a :: tr_row in
+          row_of_1st_col tr_row false rows  in
+  let rec tr tr_csv csv =
+    let row, empty = row_of_1st_col [] true csv in (* remove [csv] 1st col *)
+    if empty then List.rev tr_csv
+    else tr (row :: tr_csv) csv in
+  fun csv -> tr [] (List.rev_map ref csv)
+
 let to_array csv =
   Array.of_list (List.map Array.of_list csv)
 

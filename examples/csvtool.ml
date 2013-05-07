@@ -326,6 +326,11 @@ let cmd_replace ~input_sep ~output_sep ~chan colspec update files =
   let csv = csv @ update in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
+let cmd_transpose ~input_sep ~output_sep ~chan files =
+  let tr file = Csv.transpose (Csv.load ~separator:input_sep file) in
+  let csv = Csv.concat (List.map tr files) in
+  Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
+
 let cmd_call ~input_sep ~output_sep ~chan command files =
   (* Avoid loading the whole file into memory. *)
   let f row =
@@ -542,6 +547,9 @@ Commands:
         csvtool replace 3 updates.csv original.csv > new.csv
         mv new.csv original.csv
 
+  transpose input.csv
+    Transpose the lines and columns of the CSV file.
+
   call command
     This calls the external command (or shell function) 'command'
     followed by a parameter for each column in the CSV file.  The
@@ -704,6 +712,8 @@ let () =
      | "drop" :: rows :: files ->
          let rows = int_of_string rows in
          cmd_drop ~input_sep ~output_sep ~chan rows files
+     | "transpose" :: files ->
+         cmd_transpose ~input_sep ~output_sep ~chan files
      | "call" :: command :: files ->
          cmd_call ~input_sep ~output_sep ~chan command files
      | "trim" :: flags :: files ->
