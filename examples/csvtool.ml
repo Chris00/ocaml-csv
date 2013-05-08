@@ -327,9 +327,10 @@ let cmd_replace ~input_sep ~output_sep ~chan colspec update files =
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
 let cmd_transpose ~input_sep ~output_sep ~chan files =
-  let tr file = Csv.transpose (Csv.load ~separator:input_sep file) in
-  let csv = Csv.concat (List.map tr files) in
-  Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
+  List.iter (fun file ->
+             let tr = Csv.transpose (Csv.load ~separator:input_sep file) in
+             Csv.output_all (Csv.to_channel ~separator:output_sep chan) tr
+            ) files
 
 let cmd_call ~input_sep ~output_sep ~chan command files =
   (* Avoid loading the whole file into memory. *)
