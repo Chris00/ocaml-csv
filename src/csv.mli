@@ -94,6 +94,11 @@ val of_channel : ?separator:char -> ?excel_tricks:bool ->
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
+val of_string : ?separator:char -> ?excel_tricks:bool ->
+  string -> in_channel
+  (** Same as {!Csv.of_in_obj} except that the data is read from a
+      string. *)
+
 val load : ?separator:char -> ?excel_tricks:bool-> string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].

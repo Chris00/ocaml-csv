@@ -125,6 +125,21 @@ let of_channel ?separator ?excel_tricks fh =
        method close_in() = Pervasives.close_in fh
      end)
 
+let of_string ?separator ?excel_tricks str =
+  of_in_obj ?separator ?excel_tricks
+    (object
+       val mutable position = 0
+       method input buf ofs len =
+         if position >= String.length str
+         then raise End_of_file
+         else
+           ( let actual = min len (String.length str - position) in
+               String.blit str position buf ofs actual ;
+               position <- position + actual ;
+               actual )
+       method close_in() = ()
+     end)
+
 
 (* [fill_in_buf chan] refills in_buf if needed (when empty).  After
    this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
