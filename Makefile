@@ -3,9 +3,9 @@ PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 OCAMLFORGE_FILE_NO = 1148
 
-DISTFILES   = LICENSE.txt AUTHORS.txt INSTALL.txt README.txt _oasis \
-  _tags src/META Makefile setup.ml myocamlbuild.ml API.odocl \
-  $(wildcard src/) $(wildcard examples/) $(wildcard tests/)
+DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
+  _tags Makefile setup.ml \
+  $(filter-out %~, $(wildcard src/*) $(wildcard examples/*) $(wildcard tests/*))
 
 WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
 
@@ -49,7 +49,7 @@ dist tar: setup.ml
 	@ if [ -z "$(PKGVERSION)" ]; then \
 		echo "PKGVERSION not defined"; exit 1; fi
 	mkdir $(PKGNAME)-$(PKGVERSION)
-	cp -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
+	cp -r --parents $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
 #	Generate a setup.ml independent of oasis
 	cd $(PKGNAME)-$(PKGVERSION) && oasis setup
 	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
