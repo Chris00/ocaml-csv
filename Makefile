@@ -27,6 +27,10 @@ test doc install uninstall reinstall: all
 upload-doc: doc
 	scp -C -p -r _build/API.docdir $(WEB)
 
+csvtool: all
+	./csvtool.native pastecol 1,2,3 2,1,2 \
+	  tests/testcsv9.csv tests/testcsv9.csv
+
 csv.godiva: csv.godiva.in
 	@ sed -e "s/@PACKAGE@/$(PKGNAME)/" $< \
 	| sed -e "s/@VERSION@/$(PKGVERSION)/" \

@@ -226,6 +226,85 @@ let cmd_paste ~input_sep ~output_sep ~chan files =
   let csv = paste_rows csvs [] in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
+
+(* Given [colspec1] and [colspec2], return an associative list that
+   indicates the correspondence between the i th column specified by
+   [colspec1] and the corresponding one in [colspec2]. *)
+let rec colspec_map colspec1 colspec2 =
+  match colspec1 with
+  | [] -> []
+  | Col i :: tl1 ->
+     (match colspec2 with
+      | Col k :: tl2 -> (i,k) :: colspec_map tl1 tl2
+      | Range(k,l) :: tl2 ->
+         let colspec2 = if k < l then Range(k+1, l) :: tl2
+                        else if k = l then tl2
+                        else (* k > l *) Range(k-1, l) :: tl2 in
+         (i,k) :: colspec_map tl1 colspec2
+      | ToEnd k :: _ ->
+         (i, k) :: colspec_map tl1 [ToEnd(k+1)]
+      | [] -> failwith "pastecol: the second range does not contain \
+                       enough columns")
+  | Range(i,j) :: tl1 ->
+     let colspec1 = if i < j then Range(i+1, j) :: tl1
+                    else if i = j then tl1
+                    else (* i > j *) Range(i-1, j) :: tl1 in
+     (match colspec2 with
+      | Col k :: tl2 ->  (i,k) :: colspec_map colspec1 tl2
+      | Range(k,l) :: tl2 ->
+         let colspec2 = if k < l then Range(k+1, l) :: tl2
+                        else if k = l then tl2
+                        else (* k > l *) Range(k-1, l) :: tl2 in
+         (i,k) :: colspec_map colspec1 colspec2
+      | ToEnd k :: _ ->
+         (i,k) :: colspec_map colspec1 [ToEnd(k+1)]
+      | [] -> failwith "pastecol: the second range does not contain \
+                       enough columns")
+  | ToEnd i :: _ ->
+     let m = sprintf "pastecol: the first range cannot contain an open \
+                      range like %i-" i in
+     failwith m
+
+(* When several bindings are defined for an initial column, use the
+   last one.  ASSUME that the associative map is sorted w.r.t. the
+   first data. *)
+let rec reduce_colspec_map = function
+  | (i,_) :: (((j,_) :: _) as tl) when (i: int) = j ->
+     reduce_colspec_map tl (* maybe (j,_) is also supplanted *)
+  | m :: tl -> m :: reduce_colspec_map tl
+  | [] -> []
+
+let cmd_pastecol ~input_sep ~output_sep ~chan colspec1 colspec2 file1 file2 =
+  let csv1 = Csv.load ~separator:input_sep file1 in
+  let csv2 = Csv.load ~separator:input_sep file2 in
+  let m = colspec_map colspec1 colspec2 in
+  let m = List.stable_sort (fun (i,_) (j,_) -> compare (i:int) j) m in
+  let m = reduce_colspec_map m in
+  let rec update m curr_col row1 row2 =
+    match m with
+    | [] -> row1 (* substitutions exhausted *)
+    | (i, j) :: m_tl ->
+       match row1 with
+       | [] -> (* row exhausted but some remaining substitutions must
+                 be performed.  Create new columns. *)
+          if curr_col = i then
+            let c = try List.nth row2 j with _ -> "" in
+            c :: update m_tl (curr_col + 1) [] row2
+          else (* curr_col < i because the mapping (i,j) is dropped after *)
+            "" :: update m (curr_col + 1) [] row2
+       | c :: row1_tl ->
+          if curr_col = i then
+            let c' = try let c' = List.nth row2 j in
+                         if c' = "" then c else c'
+                     with _ -> c in
+            c' :: update m_tl (curr_col + 1) row1_tl row2
+          else (* curr_col < i *)
+            c :: update m (curr_col + 1) row1_tl row2
+  in
+  let csv = List.map2 (update m 0) csv1 csv2 in
+  Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
+
+
 let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
   (* Avoid loading the whole file into memory. *)
   let f row =
@@ -501,6 +580,14 @@ Commands:
 
       Example: csvtool paste input1.csv input2.csv > output.csv
 
+  pastecol <column-spec1> <column-spec2> input.csv update.csv
+    Replace the content of the columns referenced by <column-spec1> in the
+    file input.csv with the one of the corresponding column specified by
+    <column-spec2> in update.csv.  If a column in update.csv is empty
+    (or does not exists), the content of input.csv is left unchanged.
+
+      Example: csvtool pastecol 2-3 1- input.csv update.csv.csv > output.csv
+
   join <column-spec1> <column-spec2>
     Join (collate) multiple CSV files together.
 
@@ -683,6 +770,10 @@ let () =
          cmd_cat ~input_sep ~output_sep ~chan files
      | "paste" :: files ->
          cmd_paste ~input_sep ~output_sep ~chan files
+     | "pastecol" :: colspec1 :: colspec2 :: file1 :: file2 :: _ ->
+         let colspec1 = parse_colspec ~count_zero colspec1 in
+         let colspec2 = parse_colspec ~count_zero colspec2 in
+         cmd_pastecol ~input_sep ~output_sep ~chan colspec1 colspec2 file1 file2
      | ("join"|"collate") :: colspec1 :: colspec2 :: ((_::_::_) as files) ->
          let colspec1 = parse_colspec ~count_zero colspec1 in
          let colspec2 = parse_colspec ~count_zero colspec2 in
