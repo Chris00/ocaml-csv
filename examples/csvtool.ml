@@ -284,22 +284,15 @@ let cmd_pastecol ~input_sep ~output_sep ~chan colspec1 colspec2 file1 file2 =
     match m with
     | [] -> row1 (* substitutions exhausted *)
     | (i, j) :: m_tl ->
-       match row1 with
-       | [] -> (* row exhausted but some remaining substitutions must
-                 be performed.  Create new columns. *)
-          if curr_col = i then
-            let c = try List.nth row2 j with _ -> "" in
-            c :: update m_tl (curr_col + 1) [] row2
-          else (* curr_col < i because the mapping (i,j) is dropped after *)
-            "" :: update m (curr_col + 1) [] row2
-       | c :: row1_tl ->
-          if curr_col = i then
-            let c' = try let c' = List.nth row2 j in
-                         if c' = "" then c else c'
-                     with _ -> c in
-            c' :: update m_tl (curr_col + 1) row1_tl row2
-          else (* curr_col < i *)
-            c :: update m (curr_col + 1) row1_tl row2
+       let c, row1 = match row1 with
+         | [] -> "", [] (* row exhausted but some remaining substitutions must
+                          be performed.  Create new columns. *)
+         | c :: row1_tl -> c, row1_tl in
+       if curr_col = i then
+         let c' = try List.nth row2 j with _ -> "" in
+         c' :: update m_tl (curr_col + 1) row1 row2
+       else (* curr_col < i *)
+         c :: update m (curr_col + 1) row1 row2
   in
   let csv = List.map2 (update m 0) csv1 csv2 in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
@@ -583,8 +576,7 @@ Commands:
   pastecol <column-spec1> <column-spec2> input.csv update.csv
     Replace the content of the columns referenced by <column-spec1> in the
     file input.csv with the one of the corresponding column specified by
-    <column-spec2> in update.csv.  If a column in update.csv is empty
-    (or does not exists), the content of input.csv is left unchanged.
+    <column-spec2> in update.csv.
 
       Example: csvtool pastecol 2-3 1- input.csv update.csv.csv > output.csv
 

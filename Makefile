@@ -28,7 +28,7 @@ upload-doc: doc
 	scp -C -p -r _build/API.docdir $(WEB)
 
 csvtool: all
-	./csvtool.native pastecol 1,2,3 2,1,2 \
+	./csvtool.native pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
 csv.godiva: csv.godiva.in
