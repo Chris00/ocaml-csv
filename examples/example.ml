@@ -25,7 +25,7 @@ let embedded_csv = "\
 
 let csvs =
   List.map (fun name -> name, Csv.load name)
-    [ "example1.csv"; "example2.csv" ]
+           [ "examples/example1.csv"; "examples/example2.csv" ]
 
 
 let () =
