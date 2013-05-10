@@ -29,12 +29,14 @@ let csvs =
 
 
 let () =
-  let ic = Csv.of_string embedded_csv in
+  let ecsv = Csv.input_all(Csv.of_string embedded_csv) in
     printf "---Embedded CSV---------------------------------\n" ;
-    Csv.print_readable (Csv.input_all ic) ;
+    Csv.print_readable ecsv;
 
   List.iter (
     fun (name, csv) ->
       printf "---%s----------------------------------------\n" name;
       Csv.print_readable csv
-  ) csvs
+  ) csvs;
+  printf "Compare (Embedded CSV) example1.csv = %i\n"
+         (Csv.compare ecsv (snd(List.hd csvs)))
