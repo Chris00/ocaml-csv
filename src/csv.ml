@@ -107,7 +107,7 @@ let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
   end_of_file = false;
   current_field = Buffer.create 0xFF;
   record = [];
-  record_n = 0;
+  record_n = 0; (* => first record numbered 1 *)
   separator = separator;
   excel_tricks = excel_tricks;
 }
@@ -373,7 +373,7 @@ let next ic =
   ic.record <- [];
   ic.record_n <- ic.record_n + 1; (* the current line being read *)
   let more_fields = ref true
-  and field_no = ref 0 in
+  and field_no = ref 1 in (* the current field being read *)
   while !more_fields do
     more_fields := add_next_field ic !field_no;
     incr field_no;

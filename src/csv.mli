@@ -66,9 +66,12 @@ end
 (** {2 Input} *)
 
 exception Failure of int * int * string
-  (** [Failure(nrecord, nfield, msg)] is raised to indicate a parsing
-      error for the field number [nfield] on the record number
-      [nrecord], the description [msg] says what is wrong. *)
+(** [Failure(nrecord, nfield, msg)] is raised to indicate a parsing
+    error for the field number [nfield] on the record number
+    [nrecord], the description [msg] says what is wrong.  The first
+    record and the first field of a record are numbered [1] (to
+    correspond to the usual spreadsheet numbering but differing from
+    [List.nth] of the OCaml representation). *)
 
 type in_channel
 (** Stateful handle to input CSV files. *)
