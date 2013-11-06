@@ -14,15 +14,15 @@ This package uses [oasis](https://github.com/ocaml/oasis) to generate
 its configure, build and install scripts.  You do not need oasis to
 install and use the library.  Simply run
 
-  ocaml setup.ml -configure
-  ocaml setup.ml -build
+    ocaml setup.ml -configure
+    ocaml setup.ml -build
 
 Install
 -------
 
-  ocaml setup.ml -install
+    ocaml setup.ml -install
 
 Uninstall
 ---------
 
-  ocaml setup.ml -uninstall
+    ocaml setup.ml -uninstall
