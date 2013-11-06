@@ -855,7 +855,7 @@ let save_out_readable chan csv =
             let rp =
               try List.combine r1 r2
               with
-                Invalid_argument "List.combine" ->
+                Invalid_argument _ ->
                   failwith (Printf.sprintf "Csv.save_out_readable: internal \
                               error: length r1 = %d, length r2 = %d"
                               (List.length r1) (List.length r2)) in
