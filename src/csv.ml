@@ -548,7 +548,9 @@ let save ?separator ?excel_tricks fname t =
 let lines = List.length
 
 let columns csv =
-  List.fold_left max 0 (List.map List.length csv)
+  let m = ref 0 in
+  List.iter (fun row -> m := max !m (List.length row)) csv;
+  !m
 
 
 let rec dropwhile f = function
