@@ -406,9 +406,13 @@ let cmd_transpose ~input_sep ~output_sep ~chan files =
 
 let cmd_call ~input_sep ~output_sep ~chan command files =
   (* Avoid loading the whole file into memory. *)
+  (* Use bash if it exists to enable the [command] to be an exported
+     bash function. *)
+  let want_bash = Sys.os_type = "Unix" && Sys.file_exists "/bin/bash" in
   let f row =
-    let cmd =
-      command ^ " " ^ String.concat " " (List.map Filename.quote row) in
+    let cmd = String.concat " " (command :: List.map Filename.quote row) in
+    let cmd = if want_bash then "/bin/bash -c " ^ (Filename.quote cmd)
+              else cmd in
     let code = Sys.command cmd in
     if code <> 0 then (
       eprintf "%s: terminated with exit code %d\n" command code;
