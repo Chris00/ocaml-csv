@@ -530,6 +530,13 @@ let to_channel ?separator ?excel_tricks fh =
        method close_out () = close_out fh
      end)
 
+let to_buffer ?separator ?excel_tricks buf =
+  to_out_obj ?separator ?excel_tricks
+    (object
+       method output s ofs len = Buffer.add_substring buf s ofs len; len
+       method close_out () = ()
+     end)
+
 let rec really_output oc s ofs len =
   let w = oc.out_chan#output s ofs len in
   if w < len then really_output oc s (ofs+w) (len-w)

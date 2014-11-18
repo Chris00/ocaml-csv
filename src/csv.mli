@@ -195,6 +195,10 @@ val to_channel : ?separator:char -> ?excel_tricks:bool ->
   Pervasives.out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
 
+val to_buffer : ?separator:char -> ?excel_tricks:bool ->
+  Buffer.t -> out_channel
+  (** Same as {!Csv.to_out_obj} but output to a buffer. *)
+
 
 val output_record : out_channel -> string list -> unit
   (** [output_record oc r] write the record [r] is CSV form to the
