@@ -363,3 +363,5 @@ val associate : string list -> t -> (string * string) list list
   * The header strings are shared, so the actual space in memory consumed
   * by the spreadsheet is not much larger.
   *)
+
+val map : (string -> string) -> t -> t

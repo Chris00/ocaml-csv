@@ -84,4 +84,16 @@ let () =
   assert (Csv.compare csv1 csv2 < 0)
 
 let () =
+  let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
+               [ "f"; "g"; "h"; "i"; "" ];
+               [ "" ];
+               [ ] ] in
+  let csv2 = [ [ "A"; "B"; "C"; ""; "" ];
+               [ "F"; "G"; "H"; "I"; "" ];
+               [ "" ];
+               [ ] ] in
+  assert (Csv.map String.capitalize csv1 = csv2)
+
+
+let () =
   print_endline "All tests succeeded."
