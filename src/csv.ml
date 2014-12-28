@@ -836,6 +836,9 @@ let associate header data =
       List.combine header row
   ) data
 
+let map f csv =
+  List.map (fun row -> List.map (fun el -> f el) row) csv
+
 
 let save_out_readable chan csv =
   (* Escape all the strings in the CSV file first. *)
