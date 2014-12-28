@@ -142,13 +142,13 @@ val next : in_channel -> string list
       @raise Csv.Failure if the CSV format is not respected.  The
       partial record read is available with [#current_record]. *)
 
-val fold_left : ('a -> string list -> 'a) -> 'a -> in_channel -> 'a
+val fold_left : f:('a -> string list -> 'a) -> init:'a -> in_channel -> 'a
   (** [fold_left f a ic] computes (f ... (f (f a r0) r1) ... rN)
       where r1,...,rN are the records in the CSV file.  If [f]
       raises an exception, the record available at that moment is
       accessible through {!Csv.current_record}. *)
 
-val fold_right : (string list -> 'a -> 'a) -> in_channel -> 'a -> 'a
+val fold_right : f:(string list -> 'a -> 'a) -> in_channel -> 'a -> 'a
   (** [fold_right f ic a] computes (f r1 ... (f rN-1 (f rN a)) ...)
       where r1,...,rN-1, rN are the records in the CSV file.  All
       records are read before applying [f] so this method is not
@@ -213,7 +213,7 @@ val save_out : ?separator:char -> ?excel_tricks:bool ->
   (** @deprecated Save string list list to a channel. *)
 
 val save : ?separator:char -> ?excel_tricks:bool -> string -> t -> unit
-  (** [save fname csv] Save the [csv] data to the file [fname]. *)
+  (** [save fname csv] saves the [csv] data to the file [fname]. *)
 
 val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
   (** Print the CSV data. *)
@@ -276,12 +276,12 @@ val is_square : t -> bool
   (** Return true iff the CSV is "square" (actually rectangular).
       This means that each row has the same number of cells.  *)
 
-val set_columns : int -> t -> t
+val set_columns : cols:int -> t -> t
   (** [set_columns cols csv] makes the CSV data square by forcing the
       width to the given number of [cols].  Any short rows are padded
       with blank cells.  Any long rows are truncated.  *)
 
-val set_rows : int -> t -> t
+val set_rows : rows:int -> t -> t
   (** [set_rows rows csv] makes the CSV data have exactly [rows] rows
       by adding empty rows or truncating rows as necessary.
 
@@ -289,13 +289,13 @@ val set_rows : int -> t -> t
       to be square, call either {!Csv.square} or {!Csv.set_columns}
       after.  *)
 
-val set_size : int -> int -> t -> t
+val set_size : rows:int -> cols:int -> t -> t
   (** [set_size rows cols csv] makes the CSV data square by forcing
       the size to [rows * cols], adding blank cells or truncating as
       necessary.  It is the same as calling [set_columns cols
       (set_rows rows csv)] *)
 
-val sub : int -> int -> int -> int -> t -> t
+val sub : r:int -> c:int -> rows:int -> cols:int -> t -> t
   (** [sub r c rows cols csv] returns a subset of [csv].  The subset is
       defined as having top left corner at row [r], column [c] (counting
       from [0]) and being [rows] deep and [cols] wide.
@@ -364,6 +364,6 @@ val associate : string list -> t -> (string * string) list list
   * by the spreadsheet is not much larger.
   *)
 
-val map : (string -> string) -> t -> t
+val map : f:(string -> string) -> t -> t
 (** [map f csv] applies [f] to all entries of [csv] and returns the
     resulting CSV. *)

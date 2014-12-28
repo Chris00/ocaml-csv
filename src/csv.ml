@@ -467,7 +467,7 @@ let next ic =
 let current_record ic = ic.record
 
 
-let fold_left f a0 ic =
+let fold_left ~f ~init:a0 ic =
   let a = ref a0 in
   try
     while true do
@@ -481,11 +481,11 @@ let iter ~f ic =
   with End_of_file -> ()
 
 let input_all ic =
-  List.rev(fold_left (fun l r -> r :: l) [] ic)
+  List.rev(fold_left ~f:(fun l r -> r :: l) ~init:[] ic)
 
-let fold_right f ic a0 =
+let fold_right ~f ic a0 =
   (* We to collect all records before applying [f] -- last row first. *)
-  let lr = fold_left (fun l r -> r :: l) [] ic in
+  let lr = fold_left ~f:(fun l r -> r :: l) ~init:[] ic in
   List.fold_left (fun a r -> f r a) a0 lr
 
 
@@ -706,7 +706,7 @@ let is_square csv =
   let columns = columns csv in
   List.for_all (fun row -> List.length row = columns) csv
 
-let rec set_columns cols = function
+let rec set_columns ~cols = function
   | [] -> []
   | r :: rs ->
       let rec loop i cells =
@@ -719,7 +719,7 @@ let rec set_columns cols = function
       in
       loop 0 r :: set_columns cols rs
 
-let rec set_rows rows csv =
+let rec set_rows ~rows csv =
   if rows > 0 then (
     match csv with
     | [] -> [] :: set_rows (pred rows) []
@@ -727,7 +727,7 @@ let rec set_rows rows csv =
   )
   else []
 
-let set_size rows cols csv =
+let set_size ~rows ~cols csv =
   set_columns cols (set_rows rows csv)
 
 (* from extlib: *)
@@ -735,7 +735,7 @@ let rec drop n = function
   | _ :: l when n > 0 -> drop (n-1) l
   | l -> l
 
-let sub r c rows cols csv =
+let sub ~r ~c ~rows ~cols csv =
   let csv = drop r csv in
   let csv = List.map (drop c) csv in
   let csv = set_rows rows csv in
@@ -836,7 +836,7 @@ let associate header data =
       List.combine header row
   ) data
 
-let map f csv =
+let map ~f csv =
   List.map (fun row -> List.map (fun el -> f el) row) csv
 
 
