@@ -365,3 +365,5 @@ val associate : string list -> t -> (string * string) list list
   *)
 
 val map : (string -> string) -> t -> t
+(** [map f csv] applies [f] to all entries of [csv] and returns the
+    resulting CSV. *)
