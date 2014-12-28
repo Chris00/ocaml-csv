@@ -28,8 +28,8 @@
 
 
 type t = string list list
-(** Representation of CSV data in memory.  This is a list of rows,
-    each row being a list of columns. *)
+(** Representation of CSV data in memory.  This is a list of rows
+    (also called records), each row being a list of columns. *)
 
 
 (** {2 Input/output objects} *)
