@@ -243,26 +243,26 @@ val columns : t -> int
 
 val trim : ?top:bool -> ?left:bool -> ?right:bool -> ?bottom:bool -> t -> t
   (** This takes a CSV file and trims empty cells.
-   *
-   * All four of the option arguments ([~top], [~left], [~right], [~bottom])
-   * default to [true].
-   *
-   * The exact behaviour is:
-   *
-   * [~right]: If true, remove any empty cells at the right hand end of
-   * any row.  The number of columns in the resulting CSV structure will
-   * not necessarily be the same for each row.
-   *
-   * [~top]: If true, remove any empty rows (no cells, or containing just empty
-   * cells) from the top of the CSV structure.
-   *
-   * [~bottom]: If true, remove any empty rows from the bottom of the
-   * CSV structure.
-   *
-   * [~left]: If true, remove any empty columns from the left of the
-   * CSV structure.  Note that [~left] and [~right] are quite different:
-   * [~left] considers the whole CSV structure, whereas [~right] considers
-   * each row in isolation.
+
+      All four of the option arguments ([~top], [~left], [~right], [~bottom])
+      default to [true].
+
+      The exact behaviour is:
+
+      [~right]: If true, remove any empty cells at the right hand end of
+      any row.  The number of columns in the resulting CSV structure will
+      not necessarily be the same for each row.
+
+      [~top]: If true, remove any empty rows (no cells, or containing
+      just empty cells) from the top of the CSV structure.
+
+      [~bottom]: If true, remove any empty rows from the bottom of the
+      CSV structure.
+
+      [~left]: If true, remove any empty columns from the left of the
+      CSV structure.  Note that [~left] and [~right] are quite different:
+      [~left] considers the whole CSV structure, whereas [~right] considers
+      each row in isolation.
    *)
 
 
@@ -329,39 +329,35 @@ val of_array : string array array -> t
 
 val associate : string list -> t -> (string * string) list list
 (** [associate header data] takes a block of data and converts each
-  * row in turn into an assoc list which maps column header to data cell.
-  *
-  * Typically a spreadsheet will have the format:
-  * {v
-  *   header1   header2   header3
-  *   data11    data12    data13
-  *   data21    data22    data23
-  *     ...
-  * v}
-  *
-  * This function arranges the data into a more usable form which is
-  * robust against changes in column ordering.  The output of the
-  * function is:
-  * {v
-  *   [ ["header1", "data11"; "header2", "data12"; "header3", "data13"];
-  *     ["header1", "data21"; "header2", "data22"; "header3", "data23"];
-  *     etc. ]
-  * v}
-  *
-  * Each row is turned into an assoc list (see [List.assoc]).
-  *
-  * If a row is too short, it is padded with empty cells ([""]).  If
-  * a row is too long, it is truncated.
-  *
-  * You would typically call this function as:
-  *
-  * {v
-  * let header, data = match csv with h :: d -> h, d | [] -> assert false;;
-  * let data = Csv.associate header data;;
-  * v}
-  *
-  * The header strings are shared, so the actual space in memory consumed
-  * by the spreadsheet is not much larger.
+    row in turn into an assoc list which maps column header to data cell.
+
+    Typically a spreadsheet will have the format:
+    {v
+      header1   header2   header3
+      data11    data12    data13
+      data21    data22    data23
+      ...
+    v}
+    This function arranges the data into a more usable form which is
+    robust against changes in column ordering.  The output of the
+    function is:
+    {v
+      [ ["header1", "data11"; "header2", "data12"; "header3", "data13"];
+        ["header1", "data21"; "header2", "data22"; "header3", "data23"];
+        etc. ]
+    v}
+    Each row is turned into an assoc list (see [List.assoc]).
+
+    If a row is too short, it is padded with empty cells ([""]).  If
+    a row is too long, it is truncated.
+
+    You would typically call this function as:
+    {[
+    let header, data = match csv with h :: d -> h, d | [] -> assert false;;
+    let data = Csv.associate header data;;
+    ]}
+    The header strings are shared, so the actual space in memory consumed
+    by the spreadsheet is not much larger.
   *)
 
 val map : f:(string -> string) -> t -> t
