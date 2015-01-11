@@ -186,7 +186,7 @@ val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
       @param separator What character the separator is.  The default is [','].
 
       @param excel_tricks enables Excel tricks, namely the fact that
-      '\000' is represented as '"' followed by '0' and the fact that a
+      '\000' is represented as '\"' followed by '0' and the fact that a
       field with leading or trailing spaces or a leading '0' will be
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
       [false].  *)
