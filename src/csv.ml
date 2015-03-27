@@ -183,7 +183,7 @@ type in_channel = {
 
 let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
   in_chan = in_chan;
-  in_buf = String.create buffer_len;
+  in_buf = Bytes.create buffer_len;
   in0 = 0;
   in1 = 0;
   end_of_file = false;
@@ -489,15 +489,19 @@ let fold_right ~f ic a0 =
   List.fold_left (fun a r -> f r a) a0 lr
 
 
-let load ?separator ?excel_tricks fname =
+let load ?separator ?excel_tricks ?(headers=true) fname =
   let fh = if fname = "-" then stdin else open_in fname in
   let csv = of_channel ?separator ?excel_tricks fh in
   let t = input_all csv in
   close_in csv;
-  t
+  match headers with
+  | true -> t
+  | false -> List.tl t
 
-let load_in ?separator ?excel_tricks ch =
-  input_all (of_channel ?separator ?excel_tricks ch)
+let load_in ?separator ?excel_tricks ?(headers=true) ch =
+  match headers with
+  | true -> input_all (of_channel ?separator ?excel_tricks ch)
+  | false -> List.tl (input_all (of_channel ?separator ?excel_tricks ch))
 
 (* @deprecated *)
 let load_rows ?separator ?excel_tricks f ch =
@@ -575,19 +579,19 @@ let write_escaped oc field =
       let field =
         if n = 0 then field
         else (* There are some quotes to escape *)
-          let s = String.create (len + n) in
+          let s = Bytes.create (len + n) in
           let j = ref 0 in
           for i = 0 to len - 1 do
             let c = String.unsafe_get field i in
             if c = '"' then (
-              String.unsafe_set s !j '"'; incr j;
-              String.unsafe_set s !j '"'; incr j
+              Bytes.unsafe_set s !j '"'; incr j;
+              Bytes.unsafe_set s !j '"'; incr j
             )
             else if oc.out_excel_tricks && c = '\000' then (
-              String.unsafe_set s !j '"'; incr j;
-              String.unsafe_set s !j '0'; incr j
+              Bytes.unsafe_set s !j '"'; incr j;
+              Bytes.unsafe_set s !j '0'; incr j
             )
-            else (String.unsafe_set s !j c; incr j)
+            else (Bytes.unsafe_set s !j c; incr j)
           done;
           s
       in
