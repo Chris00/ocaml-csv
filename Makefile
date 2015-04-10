@@ -1,7 +1,6 @@
 PKGNAME	    = $(shell oasis query name)
 PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
-OCAMLFORGE_FILE_NO = 1148
 
 DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
   _tags Makefile setup.ml \
@@ -30,18 +29,6 @@ upload-doc: doc
 csvtool: all
 	./csvtool.native pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
-
-csv.godiva: csv.godiva.in
-	@ sed -e "s/@PACKAGE@/$(PKGNAME)/" $< \
-	| sed -e "s/@VERSION@/$(PKGVERSION)/" \
-	| sed -e "s/@TARBALL@/$(PKG_TARBALL)/" \
-	| sed -e "s/@DOWNLOAD@/$(OCAMLFORGE_FILE_NO)/" > $@
-	@ echo "Updated \"$@\"."
-
-# Assume the environment variable $GODI_LOCALBASE is set
-.PHONY: godi tar dist web
-godi: csv.godiva
-	godiva $<
 
 # "Force" a tag to be defined for each released tarball
 dist tar: setup.ml
