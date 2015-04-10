@@ -691,15 +691,18 @@ let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
       csv
     ) else csv in
 
-  let empty_left_cell =
-    function [] -> true | x :: _ when x = "" -> true | _ -> false in
+  let and_empty_left_cell (col_empty, one_nonempty_row) = function
+    | [] -> col_empty, one_nonempty_row
+    | "" :: tl -> col_empty, true
+    | _ -> false, true in
   let empty_left_col =
-    List.fold_left (fun a row -> a && empty_left_cell row) true in
+    List.fold_left and_empty_left_cell (true, false) in
   let remove_left_col =
     List.map (function [] -> [] | _ :: xs -> xs) in
   let rec loop csv =
-    if empty_left_col csv then
-      remove_left_col csv
+    let left_col_empty, one_nonempty_row = empty_left_col csv in
+    if left_col_empty && one_nonempty_row then
+      loop(remove_left_col csv)
     else
       csv
   in
