@@ -61,7 +61,7 @@ web: doc
 .PHONY: clean distclean
 clean::
 	ocaml setup.ml -clean
-	$(RM) $(PKG_TARBALL)
+	$(RM) $(PKG_TARBALL) setup.data
 
 distclean:
 	ocaml setup.ml -distclean
