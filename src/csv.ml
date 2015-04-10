@@ -162,6 +162,8 @@ exception Failure of int * int * string
 
 let buffer_len = 0x1FFF
 
+module Row = Map.Make(String)
+
 (* We buffer the input as this allows the be efficient while using
    very basic input channels.  The drawback is that if we want to use
    another tool, there will be data hold in the buffer.  That is why
@@ -186,50 +188,18 @@ type in_channel = {
   current_field : Buffer.t; (* buffer reused to scan fields *)
   mutable record : string list; (* The current record *)
   mutable record_n : int; (* For error messages *)
+  mutable header : string array;
+  mutable n_headers : int;  (* > 0 iff the channel has headers *)
+  mutable record_map : string Row.t; (* Current record as a map *)
   separator : char;
   excel_tricks : bool;
 }
 
-let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
-  in_chan = in_chan;
-  in_buf = Bytes.create buffer_len;
-  in0 = 0;
-  in1 = 0;
-  end_of_file = false;
-  current_field = Buffer.create 0xFF;
-  record = [];
-  record_n = 0; (* => first record numbered 1 *)
-  separator = separator;
-  excel_tricks = excel_tricks;
-}
-
-let of_channel ?separator ?excel_tricks fh =
-  of_in_obj ?separator ?excel_tricks
-    (object
-       val fh = fh
-       method input s ofs len =
-         try
-           let r = Pervasives.input fh s ofs len in
-           if r = 0 then raise End_of_file;
-           r
-         with Sys_blocked_io -> 0
-       method close_in() = Pervasives.close_in fh
-     end)
-
-let of_string ?separator ?excel_tricks str =
-  of_in_obj ?separator ?excel_tricks
-    (object
-       val mutable position = 0
-       method input buf ofs len =
-         if position >= String.length str
-         then raise End_of_file
-         else
-           ( let actual = min len (String.length str - position) in
-               String.blit str position buf ofs actual ;
-               position <- position + actual ;
-               actual )
-       method close_in() = ()
-     end)
+let add_field ic field_no field =
+  ic.record <-  field :: ic.record;
+  ic.record_map <- Row.add (string_of_int field_no) field ic.record_map;
+  if field_no <= ic.n_headers then (* field with header *)
+    ic.record_map <- Row.add ic.header.(field_no - 1) field ic.record_map
 
 
 (* [fill_in_buf chan] refills in_buf if needed (when empty).  After
@@ -308,33 +278,33 @@ let skip_CR ic =
    end of the file.  Skip the next delimiter or newline.
    @return [true] if more fields follow, [false] if the record
    is complete. *)
-let rec seek_unquoted_separator ic i =
+let rec seek_unquoted_separator ic ~field_no i =
   if i >= ic.in1 then (
     (* End not found, need to look at the next chunk *)
     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
     fill_in_buf ic; (* or raise End_of_file *)
-    seek_unquoted_separator ic 0
+    seek_unquoted_separator ic ~field_no 0
   )
   else
     let c = Bytes.unsafe_get ic.in_buf i in
     if c = ic.separator || c = '\n' || c = '\r' then (
       if Buffer.length ic.current_field = 0 then
         (* Avoid copying the string to the buffer if unnecessary *)
-        ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
+        add_field ic field_no (strip_substring ic.in_buf ic.in0 (i - ic.in0))
       else (
         Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-        ic.record <- strip_contents ic.current_field :: ic.record;
+        add_field ic field_no (strip_contents ic.current_field);
       );
       ic.in0 <- i + 1;
       if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
     )
-    else seek_unquoted_separator ic (i+1)
+    else seek_unquoted_separator ic ~field_no (i+1)
 
-let add_unquoted_field ic =
-  try seek_unquoted_separator ic ic.in0
+let add_unquoted_field ic field_no =
+  try seek_unquoted_separator ic ~field_no ic.in0
   with End_of_file ->
-    ic.record <- strip_contents ic.current_field :: ic.record;
+    add_field ic field_no (strip_contents ic.current_field);
     false
 
 (* Quoted field closed.  Read past a separator or a newline and decode
@@ -345,7 +315,7 @@ let rec seek_quoted_separator ic field_no =
   let c = Bytes.unsafe_get ic.in_buf ic.in0 in
   ic.in0 <- ic.in0 + 1;
   if c = ic.separator || c = '\n' || c = '\r' then (
-    ic.record <- Buffer.contents ic.current_field :: ic.record;
+    add_field ic field_no (Buffer.contents ic.current_field);
     if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
   )
   else if is_space c then seek_quoted_separator ic field_no (* skip space *)
@@ -395,7 +365,7 @@ let add_quoted_field ic field_no =
   try examine_quoted_field ic field_no after_quote ic.in0
   with End_of_file ->
     (* Add the field even if not closed well *)
-    ic.record <- Buffer.contents ic.current_field :: ic.record;
+    add_field ic field_no (Buffer.contents ic.current_field);
     if !after_quote then false
     else raise(Failure(ic.record_n, field_no,
                        "Quoted field closed by end of file"))
@@ -443,19 +413,19 @@ let add_next_field ic field_no =
         )
         else (
           Buffer.add_char ic.current_field '=';
-          add_unquoted_field ic
+          add_unquoted_field ic field_no
         )
       with End_of_file ->
-        ic.record <-  "=" :: ic.record;
+        add_field ic field_no "=";
         false
     end
-    else add_unquoted_field ic
+    else add_unquoted_field ic field_no
   with End_of_file ->
     (* If it is the first field, coming from [next()], the field is
        made of spaces.  If after the first, we are sure we read a
        delimiter before (but maybe the field is empty).  Thus add en
        empty field. *)
-    ic.record <-  "" :: ic.record;
+    add_field ic field_no "";
     false
 
 let next ic =
@@ -472,6 +442,68 @@ let next ic =
   ic.record <- List.rev ic.record;
   ic.record
 
+(*
+ * Creating an input, possibly with headers
+ *)
+
+let of_in_obj ?(separator=',') ?(excel_tricks=true) ?(headers=false)
+              in_chan =
+  let ic = {
+      in_chan = in_chan;
+      in_buf = Bytes.create buffer_len;
+      in0 = 0;
+      in1 = 0;
+      end_of_file = false;
+      current_field = Buffer.create 0xFF;
+      record = [];
+      record_n = 0; (* => first record numbered 1 *)
+      header = [| |];
+      n_headers = 0; (* => no header present *)
+      record_map = Row.empty;
+      separator = separator;
+      excel_tricks = excel_tricks;
+    } in
+  if headers then (
+    (* Try to initialize headers with the first record that is read. *)
+    try
+      let header = next ic in
+      ic.header <- Array.of_list header;
+      ic.n_headers <- Array.length ic.header;
+    with End_of_file | Failure _ -> ()
+  );
+  ic
+
+let of_channel ?separator ?excel_tricks ?headers fh =
+  of_in_obj ?separator ?excel_tricks ?headers
+    (object
+       val fh = fh
+       method input s ofs len =
+         try
+           let r = Pervasives.input fh s ofs len in
+           if r = 0 then raise End_of_file;
+           r
+         with Sys_blocked_io -> 0
+       method close_in() = Pervasives.close_in fh
+     end)
+
+let of_string ?separator ?excel_tricks ?headers str =
+  of_in_obj ?separator ?excel_tricks ?headers
+    (object
+       val mutable position = 0
+       method input buf ofs len =
+         if position >= String.length str
+         then raise End_of_file
+         else
+           ( let actual = min len (String.length str - position) in
+               String.blit str position buf ofs actual ;
+               position <- position + actual ;
+               actual )
+       method close_in() = ()
+     end)
+
+(*
+ * Higher level parsing functions
+ *)
 
 let current_record ic = ic.record
 
@@ -498,19 +530,20 @@ let fold_right ~f ic a0 =
   List.fold_left (fun a r -> f r a) a0 lr
 
 
-let load ?separator ?excel_tricks fname =
+let load ?separator ?excel_tricks ?headers fname =
   let fh = if fname = "-" then stdin else open_in fname in
-  let csv = of_channel ?separator ?excel_tricks fh in
+  let csv = of_channel ?separator ?excel_tricks ?headers fh in
   let t = input_all csv in
   close_in csv;
   t
 
-let load_in ?separator ?excel_tricks ch =
-  input_all (of_channel ?separator ?excel_tricks ch)
+let load_in ?separator ?excel_tricks ?headers ch =
+  input_all (of_channel ?separator ?excel_tricks ?headers ch)
 
 (* @deprecated *)
 let load_rows ?separator ?excel_tricks f ch =
   iter ~f (of_channel ?separator ?excel_tricks ch)
+
 
 (*
  * Output
@@ -649,6 +682,56 @@ let save ?separator ?excel_tricks fname t =
   let csv = to_channel ?separator ?excel_tricks ch in
   output_all csv t;
   close_out ch
+
+
+(*
+ * Map representation of rows (higher level functions)
+ *)
+
+module Map = struct
+  module Row = Row
+
+  let headers ic = Array.to_list ic.header
+
+  let current ic = ic.record_map
+
+  let next ic =
+    ignore(next ic);
+    current ic
+
+  (* The convenience higher order functions are defined in terms of
+     [next] in the same way as above. *)
+
+  let fold_left ~f ~init:a0 ic =
+    let a = ref a0 in
+    try
+      while true do
+        a := f !a (next ic)
+      done;
+      assert false
+    with End_of_file -> !a
+
+  let iter ~f ic =
+    try  while true do f (next ic) done;
+    with End_of_file -> ()
+
+  let input_all ic =
+    List.rev(fold_left ~f:(fun l r -> r :: l) ~init:[] ic)
+
+  let fold_right ~f ic a0 =
+    (* We to collect all records before applying [f] -- last row first. *)
+    let lr = fold_left ~f:(fun l r -> r :: l) ~init:[] ic in
+    List.fold_left (fun a r -> f r a) a0 lr
+
+  let load ?separator ?excel_tricks ?headers fname =
+    let fh = if fname = "-" then stdin else open_in fname in
+    let csv = of_channel ?separator ?excel_tricks ?headers fh in
+    let t = input_all csv in
+    close_in csv;
+    t
+
+end
+
 
 (*
  * Acting on CSV data in memory

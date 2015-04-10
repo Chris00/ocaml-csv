@@ -76,7 +76,7 @@ exception Failure of int * int * string
 type in_channel
 (** Stateful handle to input CSV files. *)
 
-val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
+val of_in_obj : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
   in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
@@ -90,19 +90,22 @@ val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
     followed by '0' in a quoted string means ASCII NULL and the fact
     that a field of the form ="..." only returns the string inside the
     quotes.  Default: [true].
-*)
 
-val of_channel : ?separator:char -> ?excel_tricks:bool ->
+    @param headers whether the first line of the file should be
+    treated as column names. *)
+
+val of_channel : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
   Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
-val of_string : ?separator:char -> ?excel_tricks:bool ->
+val of_string : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
   string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
-val load : ?separator:char -> ?excel_tricks:bool-> string -> t
+val load : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
+           string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
 
@@ -116,7 +119,7 @@ val load : ?separator:char -> ?excel_tricks:bool-> string -> t
       that a field of the form ="..." only returns the string inside the
       quotes.  Default: [true].  *)
 
-val load_in : ?separator:char -> ?excel_tricks:bool ->
+val load_in : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
   Pervasives.in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
       See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
@@ -126,7 +129,7 @@ val to_in_obj : in_channel -> in_obj_channel
   (** For efficiency reasons, the [in_channel] buffers the data from
       the original channel.  If you want to examine the data by other
       means than the methods below (say after a failure), you need to
-      use this function in order not to "loose" data in the
+      use this function in order not to "loose" the data in the
       buffer.  *)
 
 val close_in : in_channel -> unit
@@ -228,6 +231,45 @@ val print_readable : t -> unit
 val save_out_readable : Pervasives.out_channel -> t -> unit
   (** As for {!Csv.print_readable}, allowing the output to be sent to
       a channel.  *)
+
+
+(************************************************************************)
+(** {2 Module returning the rows as maps} *)
+module Map : sig
+  module Row : Map.S with type key = string
+
+  val headers : in_channel -> string list
+  (** The names of columns. *)
+
+  val next : in_channel -> string Row.t
+  (** [next ic] return the next row as a map from column numbers (or
+      column names if a header was provided) to the content.
+      May raise [End_of_file] and [Csv.Failure], see {!Csv.next}. *)
+
+  val load : ?separator:char -> ?excel_tricks:bool -> ?headers: bool ->
+             string -> string Row.t list
+  (** See {!Csv.load}.
+      BEWARE that the default for [headers] is [false]. *)
+
+  val fold_left : f:('a -> string Row.t -> 'a) -> init:'a -> in_channel -> 'a
+  (** See {!Csv.fold_left}. *)
+
+  val fold_right : f:(string Row.t -> 'a -> 'a) -> in_channel -> 'a -> 'a
+  (** See {!Csv.fold_right}. *)
+
+  val iter : f:(string Row.t -> unit) -> in_channel -> unit
+  (** See {!Csv.iter}. *)
+
+  val input_all : in_channel -> string Row.t list
+  (** See {!Csv.input_all}. *)
+
+  val current : in_channel -> string Row.t
+  (** Same as {!current_record} except that it returns a map.  Both
+      are synchronized, so after using the functions that return a
+      [string list] you can use this function to retrieve the current
+      row as a map — and vice versa. *)
+  ;;
+end
 
 
 (************************************************************************)
