@@ -510,7 +510,7 @@ let load_in ?separator ?excel_tricks ch =
 
 (* @deprecated *)
 let load_rows ?separator ?excel_tricks f ch =
-  iter f (of_channel ?separator ?excel_tricks ch)
+  iter ~f (of_channel ?separator ?excel_tricks ch)
 
 (*
  * Output
@@ -693,7 +693,7 @@ let trim ?(top=true) ?(left=true) ?(right=true) ?(bottom=true) csv =
 
   let and_empty_left_cell (col_empty, one_nonempty_row) = function
     | [] -> col_empty, one_nonempty_row
-    | "" :: tl -> col_empty, true
+    | "" :: _ -> col_empty, true
     | _ -> false, true in
   let empty_left_col =
     List.fold_left and_empty_left_cell (true, false) in
@@ -740,18 +740,18 @@ let rec set_columns ~cols = function
         )
         else []
       in
-      loop 0 r :: set_columns cols rs
+      loop 0 r :: set_columns ~cols rs
 
 let rec set_rows ~rows csv =
   if rows > 0 then (
     match csv with
-    | [] -> [] :: set_rows (pred rows) []
-    | r :: rs -> r :: set_rows (pred rows) rs
+    | [] -> [] :: set_rows ~rows:(pred rows) []
+    | r :: rs -> r :: set_rows ~rows:(pred rows) rs
   )
   else []
 
 let set_size ~rows ~cols csv =
-  set_columns cols (set_rows rows csv)
+  set_columns ~cols (set_rows ~rows csv)
 
 (* from extlib: *)
 let rec drop n = function
@@ -761,8 +761,8 @@ let rec drop n = function
 let sub ~r ~c ~rows ~cols csv =
   let csv = drop r csv in
   let csv = List.map (drop c) csv in
-  let csv = set_rows rows csv in
-  let csv = set_columns cols csv in
+  let csv = set_rows ~rows csv in
+  let csv = set_columns ~cols csv in
   csv
 
 (* Compare two rows for semantic equality - ignoring any blank cells
@@ -807,8 +807,8 @@ let rec concat = function
 
       (* Set the height of the left and right CSVs to the same. *)
       let nr_rows = max (lines left_csv) (lines right_csv) in
-      let left_csv = set_rows nr_rows left_csv in
-      let right_csv = set_rows nr_rows right_csv in
+      let left_csv = set_rows ~rows:nr_rows left_csv in
+      let right_csv = set_rows ~rows:nr_rows right_csv in
 
       (* Square off the left CSV. *)
       let left_csv = square left_csv in

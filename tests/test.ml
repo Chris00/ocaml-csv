@@ -92,7 +92,7 @@ let () =
                [ "F"; "G"; "H"; "I"; "" ];
                [ "" ];
                [ ] ] in
-  assert (Csv.map String.capitalize csv1 = csv2)
+  assert (Csv.map ~f:String.capitalize csv1 = csv2)
 
 
 let () =

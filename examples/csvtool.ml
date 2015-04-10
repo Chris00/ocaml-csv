@@ -111,7 +111,7 @@ let parse_colspec ~count_zero colspec =
 
 let rec width_of_colspec = function
   | [] -> 0
-  | Col c :: rest -> 1 + width_of_colspec rest
+  | Col _ :: rest -> 1 + width_of_colspec rest
   | Range (s, e) :: rest -> (e-s+1) + width_of_colspec rest
   | ToEnd _ :: _ ->
       failwith "width_of_colspec: cannot calculate width of an open column spec (one which contains 'N-')"
@@ -128,7 +128,7 @@ let cols_of_colspec colspec row =
     | Range (s, e) :: rest ->
         let width = e-s+1 in
         let range = take width (drop s row) in
-        let range = List.hd (Csv.set_columns width [range]) in
+        let range = List.hd (Csv.set_columns ~cols:width [range]) in
         List.append range (loop rest)
     | ToEnd e :: rest ->
         List.append (drop e row) (loop rest)
@@ -202,7 +202,7 @@ let cmd_cat ~input_sep ~output_sep ~chan files =
         match filename with
         | "-" -> stdin, false
         | filename -> open_in filename, true in
-      Csv.iter f (Csv.of_channel ~separator:input_sep in_chan);
+      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
       if close then close_in in_chan
   ) files
 
@@ -215,7 +215,7 @@ let cmd_paste ~input_sep ~output_sep ~chan files =
        let row, empty, csvs = add_columns csvs in
        (row, empty, [] :: csvs)
     | (r :: csv0) :: csvs ->
-       let row, empty, csvs = add_columns csvs in
+       let row, _, csvs = add_columns csvs in
        (r @ row, false, csv0 :: csvs) in
   let rec paste_rows csvs final_csv =
     let row, empty, csvs = add_columns csvs in
@@ -302,7 +302,7 @@ let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
   (* Avoid loading the whole file into memory. *)
   let f row =
     let csv = [row] in
-    let csv = Csv.set_columns cols csv in
+    let csv = Csv.set_columns ~cols csv in
     Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
   in
   List.iter (
@@ -311,13 +311,13 @@ let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
         match filename with
         | "-" -> stdin, false
         | filename -> open_in filename, true in
-      Csv.iter f (Csv.of_channel ~separator:input_sep in_chan);
+      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
       if close then close_in in_chan
   ) files
 
 let cmd_set_rows ~input_sep ~output_sep ~chan rows files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
-  let csv = Csv.set_rows rows csv in
+  let csv = Csv.set_rows ~rows csv in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
 let cmd_head ~input_sep ~output_sep ~chan rows files =
@@ -339,7 +339,7 @@ let cmd_head ~input_sep ~output_sep ~chan rows files =
           match filename with
           | "-" -> stdin, false
           | filename -> open_in filename, true in
-        Csv.iter f (Csv.of_channel ~separator:input_sep in_chan);
+        Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
         if close then close_in in_chan
       )
   ) files
@@ -360,7 +360,7 @@ let cmd_drop ~input_sep ~output_sep ~chan rows files =
         match filename with
         | "-" -> stdin, false
         | filename -> open_in filename, true in
-      Csv.iter f (Csv.of_channel ~separator:input_sep in_chan);
+      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
       if close then close_in in_chan
   ) files
 
@@ -371,7 +371,7 @@ let cmd_square ~input_sep ~output_sep ~chan files =
 
 let cmd_sub ~input_sep ~output_sep ~chan r c rows cols files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
-  let csv = Csv.sub r c rows cols csv in
+  let csv = Csv.sub ~r ~c ~rows ~cols csv in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
 let cmd_replace ~input_sep ~output_sep ~chan colspec update files =
@@ -404,7 +404,7 @@ let cmd_transpose ~input_sep ~output_sep ~chan files =
              Csv.output_all (Csv.to_channel ~separator:output_sep chan) tr
             ) files
 
-let cmd_call ~input_sep ~output_sep ~chan command files =
+let cmd_call ~input_sep command files =
   (* Avoid loading the whole file into memory. *)
   (* Use bash if it exists to enable the [command] to be an exported
      bash function. *)
@@ -425,7 +425,7 @@ let cmd_call ~input_sep ~output_sep ~chan command files =
         match filename with
         | "-" -> stdin, false
         | filename -> open_in filename, true in
-      Csv.iter f (Csv.of_channel ~separator:input_sep in_chan);
+      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
       if close then close_in in_chan
   ) files
 
@@ -464,9 +464,9 @@ let cmd_join ~input_sep ~output_sep ~chan colspec1 colspec2 files =
 
   let value_width = width_of_colspec colspec2 in
   let empty_value =
-    List.hd (Csv.set_columns value_width [[""]]) in
+    List.hd (Csv.set_columns ~cols:value_width [[""]]) in
   let multiple_values =
-    List.hd (Csv.set_columns value_width [["!MULTIPLE VALUES"]]) in
+    List.hd (Csv.set_columns ~cols:value_width [["!MULTIPLE VALUES"]]) in
 
   (* Generate output CSV. *)
   let keys = List.sort Pervasives.compare keys in
@@ -490,7 +490,7 @@ let cmd_join ~input_sep ~output_sep ~chan colspec1 colspec2 files =
   ) csv in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
 
-let rec cmd_trim ~input_sep ~output_sep ~chan (top, left, right, bottom) files =
+let cmd_trim ~input_sep ~output_sep ~chan (top, left, right, bottom) files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
   let csv = Csv.trim ~top ~left ~right ~bottom csv in
   Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
@@ -803,7 +803,7 @@ let () =
      | "transpose" :: files ->
          cmd_transpose ~input_sep ~output_sep ~chan files
      | "call" :: command :: files ->
-         cmd_call ~input_sep ~output_sep ~chan command files
+         cmd_call ~input_sep command files
      | "trim" :: flags :: files ->
          let flags = trim_flags flags in
          cmd_trim ~input_sep ~output_sep ~chan flags files
