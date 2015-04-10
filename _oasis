@@ -1,5 +1,5 @@
 #								-*-conf-*-
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        csv
 Version:     1.3.5
 Synopsis:    A pure OCaml library to read and write CSV files.
@@ -12,16 +12,17 @@ Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
 Categories:  http://database, http://science
 License:     LGPL-2.1 with OCaml linking exception
 Homepage:    https://github.com/Chris00/ocaml-csv
-Plugins:     META (0.3), StdFiles (0.3)
+Plugins:     META (0.4), StdFiles (0.4)
 
 Library csv
   Path:       src
   BuildTools: ocamlbuild
   Modules:    Csv
-  
+  BuildDepends: bytes
+
 Document API
   Title:           API reference for Csv
-  Type:            OCamlbuild (0.3)
+  Type:            OCamlbuild (0.4)
   InstallDir:      $docdir/api
   BuildTools:      ocamldoc, ocamlbuild
   XOCamlbuildPath: .
