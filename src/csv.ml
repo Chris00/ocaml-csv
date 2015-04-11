@@ -187,10 +187,12 @@ type in_channel = {
   mutable record : string list; (* The current record *)
   mutable record_n : int; (* For error messages *)
   separator : char;
+  backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
 }
 
-let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
+let of_in_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=true)
+              in_chan = {
   in_chan = in_chan;
   in_buf = Bytes.create buffer_len;
   in0 = 0;
@@ -200,11 +202,12 @@ let of_in_obj ?(separator=',') ?(excel_tricks=true) in_chan = {
   record = [];
   record_n = 0; (* => first record numbered 1 *)
   separator = separator;
+  backslash_escape;
   excel_tricks = excel_tricks;
 }
 
-let of_channel ?separator ?excel_tricks fh =
-  of_in_obj ?separator ?excel_tricks
+let of_channel ?separator ?backslash_escape ?excel_tricks fh =
+  of_in_obj ?separator ?backslash_escape ?excel_tricks
     (object
        val fh = fh
        method input s ofs len =
@@ -216,8 +219,8 @@ let of_channel ?separator ?excel_tricks fh =
        method close_in() = Pervasives.close_in fh
      end)
 
-let of_string ?separator ?excel_tricks str =
-  of_in_obj ?separator ?excel_tricks
+let of_string ?separator ?backslash_escape ?excel_tricks str =
+  of_in_obj ?separator ?backslash_escape ?excel_tricks
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -280,6 +283,19 @@ end
 
 let is_space c = c = ' ' || c = '\t' (* See documentation *)
 let is_real_space c = c = ' ' (* when separator = '\t' *)
+
+(* Array: char escaped with '\\' → char. *)
+let unescape =
+  let escaped_by c =
+    let c = Char.unsafe_chr c in
+    if c = '0' then '\000' (* \0 = NULL *)
+    else if c = 'b' then '\b'
+    else if c = 'n' then '\n'
+    else if c = 'r' then '\r'
+    else if c = 't' then '\t'
+    else if c = 'Z' then '\026' (* Ctrl + Z, used by MySQL. *)
+    else c (* unchanged *) in
+  Array.init 256 escaped_by
 
 (* Given a buffer, returns its content stripped of *final* whitespace. *)
 let strip_contents buf =
@@ -388,6 +404,17 @@ let rec examine_quoted_field ic field_no after_quote i =
       )
       else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
     )
+    else if ic.backslash_escape && c = '\\' then (
+      (* Save the field so far, without the quote *)
+      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      let i = i + 1 in
+      ic.in0 <- i; (* skip the backslash *)
+      fill_in_buf_or_Eof ic;
+      let c = Bytes.unsafe_get ic.in_buf i in
+      Buffer.add_char ic.current_field unescape.(Char.code c);
+      ic.in0 <- i + 1; (* skip the char [c]. *)
+      examine_quoted_field ic field_no after_quote (i+1)
+    )
     else examine_quoted_field ic field_no after_quote (i+1)
 
 let add_quoted_field ic field_no =
@@ -396,7 +423,7 @@ let add_quoted_field ic field_no =
   with End_of_file ->
     (* Add the field even if not closed well *)
     ic.record <- Buffer.contents ic.current_field :: ic.record;
-    if !after_quote then false
+    if !after_quote then false (* = record is complete *)
     else raise(Failure(ic.record_n, field_no,
                        "Quoted field closed by end of file"))
 
@@ -498,19 +525,19 @@ let fold_right ~f ic a0 =
   List.fold_left (fun a r -> f r a) a0 lr
 
 
-let load ?separator ?excel_tricks fname =
+let load ?separator ?backslash_escape ?excel_tricks fname =
   let fh = if fname = "-" then stdin else open_in fname in
-  let csv = of_channel ?separator ?excel_tricks fh in
+  let csv = of_channel ?separator ?backslash_escape ?excel_tricks fh in
   let t = input_all csv in
   close_in csv;
   t
 
-let load_in ?separator ?excel_tricks ch =
-  input_all (of_channel ?separator ?excel_tricks ch)
+let load_in ?separator ?backslash_escape ?excel_tricks ch =
+  input_all (of_channel ?separator ?backslash_escape ?excel_tricks ch)
 
 (* @deprecated *)
-let load_rows ?separator ?excel_tricks f ch =
-  iter ~f (of_channel ?separator ?excel_tricks ch)
+let load_rows ?separator ?backslash_escape ?excel_tricks f ch =
+  iter ~f (of_channel ?separator ?backslash_escape ?excel_tricks ch)
 
 (*
  * Output

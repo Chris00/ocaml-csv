@@ -76,8 +76,9 @@ exception Failure of int * int * string
 type in_channel
 (** Stateful handle to input CSV files. *)
 
-val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
-  in_obj_channel -> in_channel
+val of_in_obj : ?separator:char ->
+                ?backslash_escape: bool -> ?excel_tricks:bool ->
+                in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
 
@@ -86,23 +87,30 @@ val of_in_obj : ?separator:char -> ?excel_tricks:bool ->
     comma is used as a decimal separator, Excel will use [';'] as the
     separator.
 
+    @param backslash_escape Whether to allow \", \n,... in quoted
+    fields.  This is used by MySQL for example but is not standard CSV
+    so it is set to [false] by default.
+
     @param excel_tricks enables Excel tricks, namely the fact that '"'
     followed by '0' in a quoted string means ASCII NULL and the fact
     that a field of the form ="..." only returns the string inside the
     quotes.  Default: [true].
-*)
+ *)
 
-val of_channel : ?separator:char -> ?excel_tricks:bool ->
-  Pervasives.in_channel -> in_channel
+val of_channel : ?separator:char ->
+                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
-val of_string : ?separator:char -> ?excel_tricks:bool ->
-  string -> in_channel
+val of_string : ?separator:char ->
+                ?backslash_escape: bool -> ?excel_tricks:bool ->
+                string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
-val load : ?separator:char -> ?excel_tricks:bool-> string -> t
+val load : ?separator:char ->
+           ?backslash_escape: bool -> ?excel_tricks:bool-> string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
 
@@ -111,13 +119,18 @@ val load : ?separator:char -> ?excel_tricks:bool-> string -> t
       where comma is used as a decimal separator, Excel will use [';']
       as the separator.
 
+      @param backslash_escape Whether to allow \", \n,... in quoted
+      fields.  This is used by MySQL for example but is not standard CSV
+      so it is set to [false] by default.
+
       @param excel_tricks enables Excel tricks, namely the fact that '"'
       followed by '0' in a quoted string means ASCII NULL and the fact
       that a field of the form ="..." only returns the string inside the
       quotes.  Default: [true].  *)
 
-val load_in : ?separator:char -> ?excel_tricks:bool ->
-  Pervasives.in_channel -> t
+val load_in : ?separator:char ->
+              ?backslash_escape: bool -> ?excel_tricks:bool ->
+              Pervasives.in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
       See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
 
@@ -168,8 +181,9 @@ val current_record : in_channel -> string list
       to gather the parsed data in case of [Failure]. *)
 
 
-val load_rows : ?separator:char -> ?excel_tricks:bool ->
-  (string list -> unit) -> Pervasives.in_channel -> unit
+val load_rows : ?separator:char ->
+                ?backslash_escape: bool -> ?excel_tricks:bool ->
+                (string list -> unit) -> Pervasives.in_channel -> unit
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
       {!Csv.of_channel}. *)
 

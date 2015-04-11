@@ -1,8 +1,8 @@
 open Printf
 
-let do_testcsv ?separator filename expected =
+let do_testcsv ?separator ?backslash_escape filename expected =
   try
-    let csv = Csv.load ?separator filename in
+    let csv = Csv.load ?separator ?backslash_escape filename in
     if csv <> expected then (
       printf "input file: %s\n" filename;
       printf "Csv library produced:\n";
@@ -62,6 +62,10 @@ let () =
   do_testcsv ~separator:'\t'
     "testcsv8.csv"
     [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]]
+
+let () =
+  do_testcsv "testcsv10.csv" ~backslash_escape:true
+             [["a"; "b\"c"; "d\\d\000"]]
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
