@@ -232,12 +232,12 @@ let of_string ?separator ?excel_tricks str =
      end)
 
 
-(* [fill_in_buf chan] refills in_buf if needed (when empty).  After
+(* [fill_in_buf_or_Eof chan] refills in_buf if needed (when empty).  After
    this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
    there is currently no bytes to read (for a non-blocking channel).
 
    @raise End_of_file if there are no more bytes to read. *)
-let fill_in_buf ic =
+let fill_in_buf_or_Eof ic =
   if ic.end_of_file then raise End_of_file;
   if ic.in0 >= ic.in1 then begin
     try
@@ -265,7 +265,7 @@ object
     if ofs < 0 || len < 0 || ofs + len > Bytes.length buf
     then invalid_arg "Csv.to_in_obj#input";
     if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
-    fill_in_buf ic;
+    fill_in_buf_or_Eof ic;
     let r = min len (ic.in1 - ic.in0) in
     Bytes.blit ic.in_buf ic.in0 buf ofs r;
     ic.in0 <- ic.in0 + r;
@@ -299,7 +299,7 @@ let strip_substring buf ofs len =
    not considered an error -- just do nothing. *)
 let skip_CR ic =
   try
-    fill_in_buf ic;
+    fill_in_buf_or_Eof ic;
     if Bytes.unsafe_get ic.in_buf ic.in0 = '\n' then ic.in0 <- ic.in0 + 1
   with End_of_file -> ()
 
@@ -313,7 +313,7 @@ let rec seek_unquoted_separator ic i =
     (* End not found, need to look at the next chunk *)
     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
-    fill_in_buf ic; (* or raise End_of_file *)
+    fill_in_buf_or_Eof ic;
     seek_unquoted_separator ic 0
   )
   else
@@ -341,7 +341,7 @@ let add_unquoted_field ic =
    the field or raise [End_of_file].  @return [true] if more fields
    follow, [false] if the record is complete. *)
 let rec seek_quoted_separator ic field_no =
-  fill_in_buf ic; (* or raise End_of_file *)
+  fill_in_buf_or_Eof ic;
   let c = Bytes.unsafe_get ic.in_buf ic.in0 in
   ic.in0 <- ic.in0 + 1;
   if c = ic.separator || c = '\n' || c = '\r' then (
@@ -357,7 +357,7 @@ let rec examine_quoted_field ic field_no after_quote i =
     (* End of field not found, need to look at the next chunk *)
     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
-    fill_in_buf ic; (* or raise End_of_file *)
+    fill_in_buf_or_Eof ic;
     examine_quoted_field ic field_no after_quote 0
   )
   else
@@ -368,7 +368,7 @@ let rec examine_quoted_field ic field_no after_quote i =
       Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
       let i = i + 1 in
       ic.in0 <- i; (* skip the quote *)
-      fill_in_buf ic; (* or raise End_of_file *)
+      fill_in_buf_or_Eof ic;
       let c = Bytes.unsafe_get ic.in_buf i in
       if c = '\"' then (
         after_quote := false;
@@ -408,7 +408,7 @@ let skip_spaces ic =
     ic.in0 <- ic.in0 + 1
   done;
   while ic.in0 >= ic.in1 do
-    fill_in_buf ic;
+    fill_in_buf_or_Eof ic;
     while ic.in0 < ic.in1 && is_space(Bytes.unsafe_get ic.in_buf ic.in0) do
       ic.in0 <- ic.in0 + 1
     done;
@@ -434,7 +434,7 @@ let add_next_field ic field_no =
     else if ic.excel_tricks && c = '=' then (
       ic.in0 <- ic.in0 + 1; (* mark '=' as read *)
       try
-        fill_in_buf ic;
+        fill_in_buf_or_Eof ic;
         if Bytes.unsafe_get ic.in_buf ic.in0 = '\"' then (
           (* Excel trick ="..." to prevent spaces around the field
              to be removed. *)
@@ -460,7 +460,7 @@ let add_next_field ic field_no =
 
 let next ic =
   if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
-  fill_in_buf ic; (* or End_of_file which means no more records *)
+  fill_in_buf_or_Eof ic; (* End_of_file means no more records *)
   ic.record <- [];
   ic.record_n <- ic.record_n + 1; (* the current line being read *)
   let more_fields = ref true
