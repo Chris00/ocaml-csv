@@ -284,7 +284,8 @@ end
 let is_space c = c = ' ' || c = '\t' (* See documentation *)
 let is_real_space c = c = ' ' (* when separator = '\t' *)
 
-(* Array: char escaped with '\\' → char. *)
+(* Array: char escaped with '\\' → char.
+   Keep in sync with [escape]. *)
 let unescape =
   let escaped_by c =
     let c = Char.unsafe_chr c in
@@ -543,31 +544,53 @@ let load_rows ?separator ?backslash_escape ?excel_tricks f ch =
  * Output
  *)
 
+(* Arrays for backslash-escaping. *)
+let must_escape = Array.make 256 false
+let () =
+  List.iter (fun c -> must_escape.(Char.code c) <- true)
+            ['\"'; '\\';  '\000'; '\b'; '\n'; '\r'; '\t'; '\026']
+
+let escape =
+  (* Keep in sync with [unescape]. *)
+  let escape_of c =
+    let c = Char.unsafe_chr c in
+    if c = '\000' then '0' (* esape: \0 *)
+    else if c = '\b' then 'b'
+    else if c = '\n' then 'n'
+    else if c = '\r' then 'r'
+    else if c = '\t' then 't'
+    else if c = '\026' then 'Z'
+    else c in
+  Array.init 256 escape_of
+
 (* FIXME: Rework this part *)
 type out_channel = {
   out_chan : out_obj_channel;
   out_separator : char;
   out_separator_bytes : Bytes.t;
+  out_backslash_escape : bool;
   out_excel_tricks : bool;
 }
 
-let to_out_obj ?(separator=',') ?(excel_tricks=false) out_chan = {
+let to_out_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=false)
+               out_chan = {
   out_chan = out_chan;
   out_separator = separator;
   out_separator_bytes = Bytes.make 1 separator;
+  out_backslash_escape = backslash_escape;
   out_excel_tricks = excel_tricks;
 }
 
-let to_channel ?separator ?excel_tricks fh =
-  to_out_obj ?separator ?excel_tricks
+let to_channel ?separator ?backslash_escape ?excel_tricks fh =
+  to_out_obj ?separator ?backslash_escape ?excel_tricks
     (object
        val fh = fh
        method output s ofs len = output fh s ofs len; len
        method close_out () = close_out fh
      end)
 
-let to_buffer ?separator ?excel_tricks buf =
-  to_out_obj ?separator ?excel_tricks
+let to_buffer ?separator ?backslash_escape ?excel_tricks buf =
+  to_out_obj ?separator ?backslash_escape ?excel_tricks
     (object
        method output s ofs len = Buffer.add_subbytes buf s ofs len; len
        method close_out () = ()
@@ -591,14 +614,19 @@ let output_newline oc = really_output oc newline_bytes 0 1
    must be extended to contain the escaped values.  Return -1 if there
    is no need to quote.  It is assumed that the string length [len]
    is > 0. *)
-let must_quote separator excel_tricks s len =
+let must_quote oc s len =
   let quote = ref(is_space(String.unsafe_get s 0)
                   || is_space(String.unsafe_get s (len - 1))) in
   let n = ref 0 in
   for i = 0 to len - 1 do
     let c = String.unsafe_get s i in
-    if c = separator || c = '\n' || c = '\r' then quote := true
-    else if c = '"' || (excel_tricks && c = '\000') then (
+    if oc.out_backslash_escape && must_escape.(Char.code c) then (
+      (* Must be done first because backslash escaping will be
+         favored, even for the separator, '\n',... *)
+      quote := true;
+      incr n)
+    else if c = oc.out_separator || c = '\n' || c = '\r' then quote := true
+    else if c = '"' || (oc.out_excel_tricks && c = '\000') then (
       quote := true;
       incr n)
   done;
@@ -614,7 +642,7 @@ let write_escaped oc field =
   if String.length field > 0 then begin
     let len = String.length field in
     let use_excel_trick = oc.out_excel_tricks && need_excel_trick field len
-    and n = must_quote oc.out_separator oc.out_excel_tricks field len in
+    and n = must_quote oc field len in
     if n < 0 && not use_excel_trick then
       (* [really_output] does not mutate the [Bytes.t] argument. *)
       really_output oc (Bytes.unsafe_of_string field) 0 len
@@ -626,7 +654,11 @@ let write_escaped oc field =
           let j = ref 0 in
           for i = 0 to len - 1 do
             let c = String.unsafe_get field i in
-            if c = '"' then (
+            if oc.out_backslash_escape && must_escape.(Char.code c) then (
+              Bytes.unsafe_set s !j '\\'; incr j;
+              Bytes.unsafe_set s !j escape.(Char.code c); incr j
+            )
+            else if c = '"' then (
               Bytes.unsafe_set s !j '"'; incr j;
               Bytes.unsafe_set s !j '"'; incr j
             )
@@ -662,18 +694,18 @@ let output_record oc = function
 let output_all oc t =
   List.iter (fun r -> output_record oc r) t
 
-let print ?separator ?excel_tricks t =
-  let csv = to_channel ?separator ?excel_tricks stdout in
+let print ?separator ?backslash_escape ?excel_tricks t =
+  let csv = to_channel ?separator ?backslash_escape ?excel_tricks stdout in
   output_all csv t;
   flush stdout
 
-let save_out ?separator ?excel_tricks ch t =
-  let csv = to_channel ?separator ?excel_tricks ch in
+let save_out ?separator ?backslash_escape ?excel_tricks ch t =
+  let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
   output_all csv t
 
-let save ?separator ?excel_tricks fname t =
+let save ?separator ?backslash_escape ?excel_tricks fname t =
   let ch = open_out fname in
-  let csv = to_channel ?separator ?excel_tricks ch in
+  let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
   output_all csv t;
   close_out ch
 

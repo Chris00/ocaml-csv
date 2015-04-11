@@ -192,12 +192,19 @@ val load_rows : ?separator:char ->
 
 type out_channel
 
-val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
-  out_obj_channel -> out_channel
+val to_out_obj : ?separator:char ->
+                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 out_obj_channel -> out_channel
   (** [to_out_obj ?separator ?excel_tricks out_chan] creates a new "channel"
       to output the data in CSV form.
 
       @param separator What character the separator is.  The default is [','].
+
+      @param backslash_escape Prefer to escape the separator in a
+      quoted string with a backslash (e.g. "\"") instead of doubling
+      it.  Also backslash-escape '\n', '\r', '\t', '\b', '\026' (as
+      '\Z') and '\000' (as '\0') This is nice for interoperability but
+      is nonstandard CSV to it is set to [false] by default.
 
       @param excel_tricks enables Excel tricks, namely the fact that
       '\000' is represented as '"' followed by '0' and the fact that a
@@ -205,12 +212,14 @@ val to_out_obj : ?separator:char -> ?excel_tricks:bool ->
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
       [false].  *)
 
-val to_channel : ?separator:char -> ?excel_tricks:bool ->
-  Pervasives.out_channel -> out_channel
+val to_channel : ?separator:char ->
+                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 Pervasives.out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
 
-val to_buffer : ?separator:char -> ?excel_tricks:bool ->
-  Buffer.t -> out_channel
+val to_buffer : ?separator:char ->
+                ?backslash_escape: bool -> ?excel_tricks:bool ->
+                Buffer.t -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a buffer. *)
 
 
@@ -222,14 +231,17 @@ val output_all : out_channel -> t -> unit
   (** [output_all oc csv] outputs all records in [csv] to the channel
       [oc]. *)
 
-val save_out : ?separator:char -> ?excel_tricks:bool ->
-  Pervasives.out_channel -> t -> unit
+val save_out : ?separator:char ->
+               ?backslash_escape: bool -> ?excel_tricks:bool ->
+               Pervasives.out_channel -> t -> unit
   (** @deprecated Save string list list to a channel. *)
 
-val save : ?separator:char -> ?excel_tricks:bool -> string -> t -> unit
+val save : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+           string -> t -> unit
   (** [save fname csv] saves the [csv] data to the file [fname]. *)
 
-val print : ?separator:char -> ?excel_tricks:bool -> t -> unit
+val print : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+            t -> unit
   (** Print the CSV data. *)
 
 val print_readable : t -> unit
