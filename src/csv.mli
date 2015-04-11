@@ -102,7 +102,10 @@ val of_string : ?separator:char -> ?excel_tricks:bool ->
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
-val load : ?separator:char -> ?excel_tricks:bool-> string -> t
+val load : ?separator:char ->
+           ?excel_tricks:bool->
+           ?headers:bool ->
+           string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
 
@@ -114,13 +117,18 @@ val load : ?separator:char -> ?excel_tricks:bool-> string -> t
       @param excel_tricks enables Excel tricks, namely the fact that '"'
       followed by '0' in a quoted string means ASCII NULL and the fact
       that a field of the form ="..." only returns the string inside the
-      quotes.  Default: [true].  *)
+      quotes.  Default: [true].
 
-val load_in : ?separator:char -> ?excel_tricks:bool ->
-  Pervasives.in_channel -> t
+      @param headers dicates whether the headers will of the CSV are
+      included in the resultant t *)
+
+val load_in : ?separator:char ->
+              ?excel_tricks:bool ->
+              ?headers:bool ->
+              Pervasives.in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
-      See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
-
+      See {!Csv.load} for the meaning of [separator], [excel_tricks],
+      and [headers]. *)
 
 val to_in_obj : in_channel -> in_obj_channel
   (** For efficiency reasons, the [in_channel] buffers the data from

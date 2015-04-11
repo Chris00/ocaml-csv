@@ -498,15 +498,19 @@ let fold_right ~f ic a0 =
   List.fold_left (fun a r -> f r a) a0 lr
 
 
-let load ?separator ?excel_tricks fname =
+let load ?separator ?excel_tricks ?(headers=true) fname =
   let fh = if fname = "-" then stdin else open_in fname in
   let csv = of_channel ?separator ?excel_tricks fh in
   let t = input_all csv in
   close_in csv;
-  t
+  match headers with
+  | true -> t
+  | false -> List.tl t
 
-let load_in ?separator ?excel_tricks ch =
-  input_all (of_channel ?separator ?excel_tricks ch)
+let load_in ?separator ?excel_tricks ?(headers=true) ch =
+  match headers with
+  | true -> input_all (of_channel ?separator ?excel_tricks ch)
+  | false -> List.tl (input_all (of_channel ?separator ?excel_tricks ch))
 
 (* @deprecated *)
 let load_rows ?separator ?excel_tricks f ch =
