@@ -362,7 +362,14 @@ let rec examine_quoted_field ic field_no after_quote i =
   )
   else
     let c = Bytes.unsafe_get ic.in_buf i in
-    if !after_quote then (
+    if c = '\"' then (
+      after_quote := true;
+      (* Save the field so far, without the quote *)
+      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      let i = i + 1 in
+      ic.in0 <- i; (* skip the quote *)
+      fill_in_buf ic; (* or raise End_of_file *)
+      let c = Bytes.unsafe_get ic.in_buf i in
       if c = '\"' then (
         after_quote := false;
         (* [c] is kept so a quote will be included in the field *)
@@ -380,13 +387,6 @@ let rec examine_quoted_field ic field_no after_quote i =
         examine_quoted_field ic field_no after_quote (i+1)
       )
       else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
-    )
-    else if c = '\"' then (
-      after_quote := true;
-      (* Save the field so far, without the quote *)
-      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-      ic.in0 <- i + 1; (* skip the quote *)
-      examine_quoted_field ic field_no after_quote ic.in0
     )
     else examine_quoted_field ic field_no after_quote (i+1)
 
@@ -431,7 +431,7 @@ let add_next_field ic field_no =
       ic.in0 <- ic.in0 + 1;
       add_quoted_field ic field_no
     )
-    else if ic.excel_tricks && c = '=' then begin
+    else if ic.excel_tricks && c = '=' then (
       ic.in0 <- ic.in0 + 1; (* mark '=' as read *)
       try
         fill_in_buf ic;
@@ -448,7 +448,7 @@ let add_next_field ic field_no =
       with End_of_file ->
         ic.record <-  "=" :: ic.record;
         false
-    end
+    )
     else add_unquoted_field ic
   with End_of_file ->
     (* If it is the first field, coming from [next()], the field is
