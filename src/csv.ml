@@ -288,14 +288,14 @@ let is_real_space c = c = ' ' (* when separator = '\t' *)
    Keep in sync with [escape]. *)
 let unescape =
   let escaped_by c =
-    let c = Char.unsafe_chr c in
-    if c = '0' then '\000' (* \0 = NULL *)
-    else if c = 'b' then '\b'
-    else if c = 'n' then '\n'
-    else if c = 'r' then '\r'
-    else if c = 't' then '\t'
-    else if c = 'Z' then '\026' (* Ctrl + Z, used by MySQL. *)
-    else c (* unchanged *) in
+    match Char.unsafe_chr c with
+    | '0' -> '\000' (* \0 = NULL *)
+    | 'b' -> '\b'
+    | 'n' -> '\n'
+    | 'r' -> '\r'
+    | 't' -> '\t'
+    | 'Z' -> '\026' (* Ctrl + Z, used by MySQL. *)
+    | c -> c (* unchanged *) in
   Array.init 256 escaped_by
 
 (* Given a buffer, returns its content stripped of *final* whitespace. *)
@@ -553,14 +553,14 @@ let () =
 let escape =
   (* Keep in sync with [unescape]. *)
   let escape_of c =
-    let c = Char.unsafe_chr c in
-    if c = '\000' then '0' (* esape: \0 *)
-    else if c = '\b' then 'b'
-    else if c = '\n' then 'n'
-    else if c = '\r' then 'r'
-    else if c = '\t' then 't'
-    else if c = '\026' then 'Z'
-    else c in
+    match Char.unsafe_chr c with
+    | '\000' -> '0' (* esape: \0 *)
+    | '\b' -> 'b'
+    | '\n' -> 'n'
+    | '\r' -> 'r'
+    | '\t' -> 't'
+    | '\026' -> 'Z'
+    | c ->  c in
   Array.init 256 escape_of
 
 (* FIXME: Rework this part *)
