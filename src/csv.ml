@@ -383,38 +383,37 @@ let rec examine_quoted_field ic field_no after_quote i =
       after_quote := true;
       (* Save the field so far, without the quote *)
       Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-      let i = i + 1 in
-      ic.in0 <- i; (* skip the quote *)
-      fill_in_buf_or_Eof ic;
-      let c = Bytes.unsafe_get ic.in_buf i in
+      ic.in0 <- i + 1; (* skip the quote *)
+      (* The field up to [ic.in0] is saved, can refill if needed. *)
+      fill_in_buf_or_Eof ic; (* possibly update [ic.in0] *)
+      let c = Bytes.unsafe_get ic.in_buf ic.in0 in
       if c = '\"' then (
         after_quote := false;
         (* [c] is kept so a quote will be included in the field *)
-        examine_quoted_field ic field_no after_quote (i+1)
+        examine_quoted_field ic field_no after_quote (ic.in0 + 1)
       )
       else if c = ic.separator || is_space c || c = '\n' || c = '\r' then (
-        seek_quoted_separator ic field_no (* field already saved; in0=i;
+        seek_quoted_separator ic field_no (* field already saved;
                                              after_quote=true *)
       )
       else if ic.excel_tricks && c = '0' then (
         (* Supposedly, '"' '0' means ASCII NULL *)
         after_quote := false;
         Buffer.add_char ic.current_field '\000';
-        ic.in0 <- i + 1; (* skip the '0' *)
-        examine_quoted_field ic field_no after_quote (i+1)
+        ic.in0 <- ic.in0 + 1; (* skip the '0' *)
+        examine_quoted_field ic field_no after_quote ic.in0
       )
       else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
     )
     else if ic.backslash_escape && c = '\\' then (
-      (* Save the field so far, without the quote *)
+      (* Save the field so far, without the backslash: *)
       Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-      let i = i + 1 in
-      ic.in0 <- i; (* skip the backslash *)
-      fill_in_buf_or_Eof ic;
-      let c = Bytes.unsafe_get ic.in_buf i in
+      ic.in0 <- i + 1; (* skip the backslash *)
+      fill_in_buf_or_Eof ic; (* possibly update [ic.in0] *)
+      let c = Bytes.unsafe_get ic.in_buf ic.in0 in
       Buffer.add_char ic.current_field unescape.(Char.code c);
-      ic.in0 <- i + 1; (* skip the char [c]. *)
-      examine_quoted_field ic field_no after_quote (i+1)
+      ic.in0 <- ic.in0 + 1; (* skip the char [c]. *)
+      examine_quoted_field ic field_no after_quote ic.in0
     )
     else examine_quoted_field ic field_no after_quote (i+1)
 
