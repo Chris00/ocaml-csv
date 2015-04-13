@@ -386,6 +386,7 @@ let rec examine_quoted_field ic field_no after_quote i =
       let i = i + 1 in
       ic.in0 <- i; (* skip the quote *)
       fill_in_buf_or_Eof ic;
+      let i = ic.in0 in
       let c = Bytes.unsafe_get ic.in_buf i in
       if c = '\"' then (
         after_quote := false;
@@ -411,6 +412,7 @@ let rec examine_quoted_field ic field_no after_quote i =
       let i = i + 1 in
       ic.in0 <- i; (* skip the backslash *)
       fill_in_buf_or_Eof ic;
+      let i = ic.in0 in
       let c = Bytes.unsafe_get ic.in_buf i in
       Buffer.add_char ic.current_field unescape.(Char.code c);
       ic.in0 <- i + 1; (* skip the char [c]. *)
