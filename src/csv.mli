@@ -22,6 +22,10 @@
 
 (** Read and write the CSV (comma separated values) format.
 
+    This library should be compatible with
+    {{:https://tools.ietf.org/html/rfc4180} RFC4180} if one sets
+    [strip=false] in the creation functions.
+
     @author Richard Jones <rjones\@redhat.com>
     @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
  *)
@@ -76,7 +80,7 @@ exception Failure of int * int * string
 type in_channel
 (** Stateful handle to input CSV files. *)
 
-val of_in_obj : ?separator:char ->
+val of_in_obj : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
@@ -86,6 +90,9 @@ val of_in_obj : ?separator:char ->
     [','].  You should be aware however that, in the countries where
     comma is used as a decimal separator, Excel will use [';'] as the
     separator.
+
+    @param strip Whether to remove the white space around unquoted
+    fields.  The default is [true] for backward compatibility reasons.
 
     @param backslash_escape Whether to allow \", \n,... in quoted
     fields.  This is used by MySQL for example but is not standard CSV
@@ -97,19 +104,19 @@ val of_in_obj : ?separator:char ->
     quotes.  Default: [true].
  *)
 
-val of_channel : ?separator:char ->
+val of_channel : ?separator:char -> ?strip: bool ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
                  Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
-val of_string : ?separator:char ->
+val of_string : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
-val load : ?separator:char ->
+val load : ?separator:char -> ?strip: bool ->
            ?backslash_escape: bool -> ?excel_tricks:bool-> string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
@@ -128,7 +135,7 @@ val load : ?separator:char ->
       that a field of the form ="..." only returns the string inside the
       quotes.  Default: [true].  *)
 
-val load_in : ?separator:char ->
+val load_in : ?separator:char -> ?strip: bool ->
               ?backslash_escape: bool -> ?excel_tricks:bool ->
               Pervasives.in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
@@ -181,7 +188,7 @@ val current_record : in_channel -> string list
       to gather the parsed data in case of [Failure]. *)
 
 
-val load_rows : ?separator:char ->
+val load_rows : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 (string list -> unit) -> Pervasives.in_channel -> unit
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with

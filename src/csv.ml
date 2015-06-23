@@ -189,9 +189,11 @@ type in_channel = {
   separator : char;
   backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
+  strip : bool; (* whether to strip spaces around unquoted entries *)
 }
 
-let of_in_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=true)
+let of_in_obj ?(separator=',') ?(strip=true)
+              ?(backslash_escape=false) ?(excel_tricks=true)
               in_chan = {
   in_chan = in_chan;
   in_buf = Bytes.create buffer_len;
@@ -204,10 +206,11 @@ let of_in_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=true)
   separator = separator;
   backslash_escape;
   excel_tricks = excel_tricks;
+  strip;
 }
 
-let of_channel ?separator ?backslash_escape ?excel_tricks fh =
-  of_in_obj ?separator ?backslash_escape ?excel_tricks
+let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
+  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
     (object
        val fh = fh
        method input s ofs len =
@@ -219,8 +222,8 @@ let of_channel ?separator ?backslash_escape ?excel_tricks fh =
        method close_in() = Pervasives.close_in fh
      end)
 
-let of_string ?separator ?backslash_escape ?excel_tricks str =
-  of_in_obj ?separator ?backslash_escape ?excel_tricks
+let of_string ?separator ?strip ?backslash_escape ?excel_tricks str =
+  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -311,7 +314,6 @@ let strip_substring buf ofs len =
   while !n >= ofs && is_space(Bytes.unsafe_get buf !n) do decr n done;
   Bytes.sub_string buf ofs (!n - ofs + 1)
 
-
 (* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
    not considered an error -- just do nothing. *)
 let skip_CR ic =
@@ -338,10 +340,16 @@ let rec seek_unquoted_separator ic i =
     if c = ic.separator || c = '\n' || c = '\r' then (
       if Buffer.length ic.current_field = 0 then
         (* Avoid copying the string to the buffer if unnecessary *)
-        ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
+        if ic.strip then
+          ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
+        else
+          ic.record <- Bytes.sub_string ic.in_buf ic.in0 (i - ic.in0) :: ic.record
       else (
         Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-        ic.record <- strip_contents ic.current_field :: ic.record;
+        if ic.strip then
+          ic.record <- strip_contents ic.current_field :: ic.record
+        else
+          ic.record <- Buffer.contents ic.current_field :: ic.record;
       );
       ic.in0 <- i + 1;
       if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
@@ -428,17 +436,22 @@ let add_quoted_field ic field_no =
                        "Quoted field closed by end of file"))
 
 
-let skip_spaces ic =
+let rec add_from_in_buf ic is_space =
+  if ic.in0 < ic.in1 then
+    let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+    if is_space c then (
+      Buffer.add_char ic.current_field c;
+      ic.in0 <- ic.in0 + 1;
+      add_from_in_buf ic is_space
+    )
+
+let add_spaces ic =
   let is_space = if ic.separator = '\t' then is_real_space else is_space in
   (* Skip spaces: after this [in0] is a non-space char. *)
-  while ic.in0 < ic.in1 && is_space(Bytes.unsafe_get ic.in_buf ic.in0) do
-    ic.in0 <- ic.in0 + 1
-  done;
+  add_from_in_buf ic is_space;
   while ic.in0 >= ic.in1 do
     fill_in_buf_or_Eof ic;
-    while ic.in0 < ic.in1 && is_space(Bytes.unsafe_get ic.in_buf ic.in0) do
-      ic.in0 <- ic.in0 + 1
-    done;
+    add_from_in_buf ic is_space;
   done
 
 (* We suppose to be at the beginning of a field.  Add the next field
@@ -451,11 +464,12 @@ let skip_spaces ic =
 let add_next_field ic field_no =
   Buffer.clear ic.current_field;
   try
-    skip_spaces ic;
+    add_spaces ic;
     (* Now, in0 < in1 or End_of_file was raised *)
     let c = Bytes.unsafe_get ic.in_buf ic.in0 in
     if c = '\"' then (
       ic.in0 <- ic.in0 + 1;
+      Buffer.clear ic.current_field; (* remove spaces *)
       add_quoted_field ic field_no
     )
     else if ic.excel_tricks && c = '=' then (
@@ -469,6 +483,7 @@ let add_next_field ic field_no =
           add_quoted_field ic field_no
         )
         else (
+          if ic.strip then Buffer.clear ic.current_field; (* remove spaces *)
           Buffer.add_char ic.current_field '=';
           add_unquoted_field ic
         )
@@ -476,7 +491,10 @@ let add_next_field ic field_no =
         ic.record <-  "=" :: ic.record;
         false
     )
-    else add_unquoted_field ic
+    else (
+      if ic.strip then Buffer.clear ic.current_field; (* remove spaces *)
+      add_unquoted_field ic
+    )
   with End_of_file ->
     (* If it is the first field, coming from [next()], the field is
        made of spaces.  If after the first, we are sure we read a
@@ -525,19 +543,19 @@ let fold_right ~f ic a0 =
   List.fold_left (fun a r -> f r a) a0 lr
 
 
-let load ?separator ?backslash_escape ?excel_tricks fname =
+let load ?separator ?strip ?backslash_escape ?excel_tricks fname =
   let fh = if fname = "-" then stdin else open_in fname in
-  let csv = of_channel ?separator ?backslash_escape ?excel_tricks fh in
+  let csv = of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh in
   let t = input_all csv in
   close_in csv;
   t
 
-let load_in ?separator ?backslash_escape ?excel_tricks ch =
-  input_all (of_channel ?separator ?backslash_escape ?excel_tricks ch)
+let load_in ?separator ?strip ?backslash_escape ?excel_tricks ch =
+  input_all (of_channel ?separator ?strip ?backslash_escape ?excel_tricks ch)
 
 (* @deprecated *)
-let load_rows ?separator ?backslash_escape ?excel_tricks f ch =
-  iter ~f (of_channel ?separator ?backslash_escape ?excel_tricks ch)
+let load_rows ?separator ?strip ?backslash_escape ?excel_tricks f ch =
+  iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks ch)
 
 (*
  * Output
