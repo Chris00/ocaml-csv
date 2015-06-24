@@ -189,8 +189,34 @@ type in_channel = {
   separator : char;
   backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
-  strip : bool; (* whether to strip spaces around unquoted entries *)
+  (* Whitespace related stripping functions: *)
+  is_space : char -> bool;
+  lstrip_buffer : Buffer.t -> unit;
+  rstrip_substring : Bytes.t -> int -> int -> string;
+  rstrip_contents : Buffer.t -> string;
 }
+
+(* Helpers for input *)
+
+let is_space_or_tab c = c = ' ' || c = '\t' (* See documentation *)
+let is_real_space c = c = ' ' (* when separator = '\t' *)
+
+(* Given a buffer, returns its content stripped of *final* whitespace. *)
+let rstrip_contents buf =
+  let n = ref(Buffer.length buf - 1) in
+  while !n >= 0 && is_space_or_tab(Buffer.nth buf !n) do decr n done;
+  Buffer.sub buf 0 (!n + 1)
+
+(* Return the substring after stripping its final space.  It is
+   assumed the substring parameters are valid. *)
+let rstrip_substring buf ofs len =
+  let n = ref(ofs + len - 1) in
+  while !n >= ofs && is_space_or_tab(Bytes.unsafe_get buf !n) do decr n done;
+  Bytes.sub_string buf ofs (!n - ofs + 1)
+
+let do_nothing _ = ()
+
+(* Creating a handle *)
 
 let of_in_obj ?(separator=',') ?(strip=true)
               ?(backslash_escape=false) ?(excel_tricks=true)
@@ -206,7 +232,11 @@ let of_in_obj ?(separator=',') ?(strip=true)
   separator = separator;
   backslash_escape;
   excel_tricks = excel_tricks;
-  strip;
+  (* Stripping *)
+  is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
+  lstrip_buffer = (if strip then Buffer.clear else do_nothing);
+  rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
+  rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
 }
 
 let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
@@ -284,9 +314,6 @@ end
  * CSV input format parsing
  *)
 
-let is_space c = c = ' ' || c = '\t' (* See documentation *)
-let is_real_space c = c = ' ' (* when separator = '\t' *)
-
 (* Array: char escaped with '\\' → char.
    Keep in sync with [escape]. *)
 let unescape =
@@ -300,19 +327,6 @@ let unescape =
     | 'Z' -> '\026' (* Ctrl + Z, used by MySQL. *)
     | c -> c (* unchanged *) in
   Array.init 256 escaped_by
-
-(* Given a buffer, returns its content stripped of *final* whitespace. *)
-let strip_contents buf =
-  let n = ref(Buffer.length buf - 1) in
-  while !n >= 0 && is_space(Buffer.nth buf !n) do decr n done;
-  Buffer.sub buf 0 (!n + 1)
-
-(* Return the substring after stripping its final space.  It is
-   assumed the substring parameters are valid. *)
-let strip_substring buf ofs len =
-  let n = ref(ofs + len - 1) in
-  while !n >= ofs && is_space(Bytes.unsafe_get buf !n) do decr n done;
-  Bytes.sub_string buf ofs (!n - ofs + 1)
 
 (* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
    not considered an error -- just do nothing. *)
@@ -340,16 +354,11 @@ let rec seek_unquoted_separator ic i =
     if c = ic.separator || c = '\n' || c = '\r' then (
       if Buffer.length ic.current_field = 0 then
         (* Avoid copying the string to the buffer if unnecessary *)
-        if ic.strip then
-          ic.record <- strip_substring ic.in_buf ic.in0 (i - ic.in0) :: ic.record
-        else
-          ic.record <- Bytes.sub_string ic.in_buf ic.in0 (i - ic.in0) :: ic.record
+        ic.record <- ic.rstrip_substring ic.in_buf ic.in0 (i - ic.in0)
+                    :: ic.record
       else (
         Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-        if ic.strip then
-          ic.record <- strip_contents ic.current_field :: ic.record
-        else
-          ic.record <- Buffer.contents ic.current_field :: ic.record;
+        ic.record <- ic.rstrip_contents ic.current_field :: ic.record
       );
       ic.in0 <- i + 1;
       if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
@@ -359,7 +368,7 @@ let rec seek_unquoted_separator ic i =
 let add_unquoted_field ic =
   try seek_unquoted_separator ic ic.in0
   with End_of_file ->
-    ic.record <- strip_contents ic.current_field :: ic.record;
+    ic.record <- ic.rstrip_contents ic.current_field :: ic.record;
     false
 
 (* Quoted field closed.  Read past a separator or a newline and decode
@@ -373,7 +382,8 @@ let rec seek_quoted_separator ic field_no =
     ic.record <- Buffer.contents ic.current_field :: ic.record;
     if c = '\r' then (skip_CR ic; false) else (c = ic.separator)
   )
-  else if is_space c then seek_quoted_separator ic field_no (* skip space *)
+  else if is_space_or_tab c then
+    seek_quoted_separator ic field_no (* skip space *)
   else raise(Failure(ic.record_n, field_no,
                      "Non-space char after closing the quoted field"))
 
@@ -400,7 +410,7 @@ let rec examine_quoted_field ic field_no after_quote i =
         (* [c] is kept so a quote will be included in the field *)
         examine_quoted_field ic field_no after_quote (ic.in0 + 1)
       )
-      else if c = ic.separator || is_space c || c = '\n' || c = '\r' then (
+      else if c = ic.separator || is_space_or_tab c || c = '\n' || c = '\r' then (
         seek_quoted_separator ic field_no (* field already saved;
                                              after_quote=true *)
       )
@@ -446,12 +456,11 @@ let rec add_from_in_buf ic is_space =
     )
 
 let add_spaces ic =
-  let is_space = if ic.separator = '\t' then is_real_space else is_space in
   (* Skip spaces: after this [in0] is a non-space char. *)
-  add_from_in_buf ic is_space;
+  add_from_in_buf ic ic.is_space;
   while ic.in0 >= ic.in1 do
     fill_in_buf_or_Eof ic;
-    add_from_in_buf ic is_space;
+    add_from_in_buf ic ic.is_space;
   done
 
 (* We suppose to be at the beginning of a field.  Add the next field
@@ -483,7 +492,7 @@ let add_next_field ic field_no =
           add_quoted_field ic field_no
         )
         else (
-          if ic.strip then Buffer.clear ic.current_field; (* remove spaces *)
+          ic.lstrip_buffer ic.current_field; (* remove spaces *)
           Buffer.add_char ic.current_field '=';
           add_unquoted_field ic
         )
@@ -492,7 +501,7 @@ let add_next_field ic field_no =
         false
     )
     else (
-      if ic.strip then Buffer.clear ic.current_field; (* remove spaces *)
+      ic.lstrip_buffer ic.current_field; (* remove spaces *)
       add_unquoted_field ic
     )
   with End_of_file ->
@@ -632,8 +641,8 @@ let output_newline oc = really_output oc newline_bytes 0 1
    is no need to quote.  It is assumed that the string length [len]
    is > 0. *)
 let must_quote oc s len =
-  let quote = ref(is_space(String.unsafe_get s 0)
-                  || is_space(String.unsafe_get s (len - 1))) in
+  let quote = ref(is_space_or_tab(String.unsafe_get s 0)
+                  || is_space_or_tab(String.unsafe_get s (len - 1))) in
   let n = ref 0 in
   for i = 0 to len - 1 do
     let c = String.unsafe_get s i in
@@ -651,7 +660,7 @@ let must_quote oc s len =
 
 let need_excel_trick s len =
   let c = String.unsafe_get s 0 in
-  is_space c || c = '0' || is_space(String.unsafe_get s (len - 1))
+  is_space_or_tab c || c = '0' || is_space_or_tab(String.unsafe_get s (len - 1))
 
 (* Do some work to avoid quoting a field unless it is absolutely
    required. *)
