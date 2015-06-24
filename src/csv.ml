@@ -196,7 +196,9 @@ type in_channel = {
   rstrip_contents : Buffer.t -> string;
 }
 
-(* Helpers for input *)
+(*
+ * Helpers for input
+ *)
 
 let is_space_or_tab c = c = ' ' || c = '\t' (* See documentation *)
 let is_real_space c = c = ' ' (* when separator = '\t' *)
@@ -216,58 +218,6 @@ let rstrip_substring buf ofs len =
 
 let do_nothing _ = ()
 
-(* Creating a handle *)
-
-let of_in_obj ?(separator=',') ?(strip=true)
-              ?(backslash_escape=false) ?(excel_tricks=true)
-              in_chan = {
-  in_chan = in_chan;
-  in_buf = Bytes.create buffer_len;
-  in0 = 0;
-  in1 = 0;
-  end_of_file = false;
-  current_field = Buffer.create 0xFF;
-  record = [];
-  record_n = 0; (* => first record numbered 1 *)
-  separator = separator;
-  backslash_escape;
-  excel_tricks = excel_tricks;
-  (* Stripping *)
-  is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
-  lstrip_buffer = (if strip then Buffer.clear else do_nothing);
-  rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
-  rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
-}
-
-let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
-  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
-    (object
-       val fh = fh
-       method input s ofs len =
-         try
-           let r = Pervasives.input fh s ofs len in
-           if r = 0 then raise End_of_file;
-           r
-         with Sys_blocked_io -> 0
-       method close_in() = Pervasives.close_in fh
-     end)
-
-let of_string ?separator ?strip ?backslash_escape ?excel_tricks str =
-  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
-    (object
-       val mutable position = 0
-       method input buf ofs len =
-         if position >= String.length str
-         then raise End_of_file
-         else
-           ( let actual = min len (String.length str - position) in
-               String.blit str position buf ofs actual ;
-               position <- position + actual ;
-               actual )
-       method close_in() = ()
-     end)
-
-
 (* [fill_in_buf_or_Eof chan] refills in_buf if needed (when empty).  After
    this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
    there is currently no bytes to read (for a non-blocking channel).
@@ -283,32 +233,6 @@ let fill_in_buf_or_Eof ic =
       ic.end_of_file <- true;
       raise End_of_file
   end
-
-
-let close_in ic =
-  if ic.in1 >= 0 then begin
-    ic.in0 <- 0;
-    ic.in1 <- -1;
-    ic.in_chan#close_in(); (* may raise an exception *)
-  end
-
-
-let to_in_obj ic =
-object
-  val ic = ic
-
-  method input buf ofs len =
-    if ofs < 0 || len < 0 || ofs + len > Bytes.length buf
-    then invalid_arg "Csv.to_in_obj#input";
-    if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
-    fill_in_buf_or_Eof ic;
-    let r = min len (ic.in1 - ic.in0) in
-    Bytes.blit ic.in_buf ic.in0 buf ofs r;
-    ic.in0 <- ic.in0 + r;
-    r
-
-  method close_in() = close_in ic
-end
 
 (*
  * CSV input format parsing
@@ -551,6 +475,84 @@ let fold_right ~f ic a0 =
   let lr = fold_left ~f:(fun l r -> r :: l) ~init:[] ic in
   List.fold_left (fun a r -> f r a) a0 lr
 
+
+(*
+ * Creating a handle
+ *)
+
+let of_in_obj ?(separator=',') ?(strip=true)
+              ?(backslash_escape=false) ?(excel_tricks=true)
+              in_chan = {
+  in_chan = in_chan;
+  in_buf = Bytes.create buffer_len;
+  in0 = 0;
+  in1 = 0;
+  end_of_file = false;
+  current_field = Buffer.create 0xFF;
+  record = [];
+  record_n = 0; (* => first record numbered 1 *)
+  separator = separator;
+  backslash_escape;
+  excel_tricks = excel_tricks;
+  (* Stripping *)
+  is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
+  lstrip_buffer = (if strip then Buffer.clear else do_nothing);
+  rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
+  rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
+}
+
+let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
+  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
+    (object
+       val fh = fh
+       method input s ofs len =
+         try
+           let r = Pervasives.input fh s ofs len in
+           if r = 0 then raise End_of_file;
+           r
+         with Sys_blocked_io -> 0
+       method close_in() = Pervasives.close_in fh
+     end)
+
+let of_string ?separator ?strip ?backslash_escape ?excel_tricks str =
+  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
+    (object
+       val mutable position = 0
+       method input buf ofs len =
+         if position >= String.length str
+         then raise End_of_file
+         else
+           ( let actual = min len (String.length str - position) in
+               String.blit str position buf ofs actual ;
+               position <- position + actual ;
+               actual )
+       method close_in() = ()
+     end)
+
+let close_in ic =
+  if ic.in1 >= 0 then begin
+    ic.in0 <- 0;
+    ic.in1 <- -1;
+    ic.in_chan#close_in(); (* may raise an exception *)
+  end
+
+
+let to_in_obj ic =
+object
+  val ic = ic
+
+  method input buf ofs len =
+    if ofs < 0 || len < 0 || ofs + len > Bytes.length buf
+    then invalid_arg "Csv.to_in_obj#input";
+    if ic.in1 < 0 then raise(Sys_error "Bad file descriptor");
+    fill_in_buf_or_Eof ic;
+    let r = min len (ic.in1 - ic.in0) in
+    Bytes.blit ic.in_buf ic.in0 buf ofs r;
+    ic.in0 <- ic.in0 + r;
+    r
+
+  method close_in() = close_in ic
+end
 
 let load ?separator ?strip ?backslash_escape ?excel_tricks fname =
   let fh = if fname = "-" then stdin else open_in fname in
