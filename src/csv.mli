@@ -81,6 +81,7 @@ type in_channel
 (** Stateful handle to input CSV files. *)
 
 val of_in_obj : ?separator:char -> ?strip: bool ->
+                ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
@@ -94,6 +95,17 @@ val of_in_obj : ?separator:char -> ?strip: bool ->
     @param strip Whether to remove the white space around unquoted
     fields.  The default is [true] for backward compatibility reasons.
 
+    @param has_header tells that the first row of the CSV channel is
+    to be interpreted as a header (this row will not be returned by
+    {!next}).  This is useful to use the functions in the {!Rows}
+    module below.  Default: [false].
+
+    @param header Supply the header to use for this CSV channel.  If
+    both [header] and [has_header] are given, the names of [header]
+    take precedence; if a name in [header] is [""], the one in the CSV
+    header is used.  If a name appears twice, only its first
+    occurrence is used.
+
     @param backslash_escape Whether to allow \", \n,... in quoted
     fields.  This is used by MySQL for example but is not standard CSV
     so it is set to [false] by default.
@@ -105,12 +117,14 @@ val of_in_obj : ?separator:char -> ?strip: bool ->
  *)
 
 val of_channel : ?separator:char -> ?strip: bool ->
+                 ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
                  Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
 
 val of_string : ?separator:char -> ?strip: bool ->
+                ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
@@ -262,6 +276,72 @@ val save_out_readable : Pervasives.out_channel -> t -> unit
   (** As for {!Csv.print_readable}, allowing the output to be sent to
       a channel.  *)
 
+
+(************************************************************************)
+(** {2 Functions to access rows when a header is present} *)
+
+(** A row with a header. *)
+module Row : sig
+  type t
+  (** Representation of a row whose columns are accessible both by
+      indices and by headers names. *)
+
+  val get : t -> int -> string
+  (** [get row i] returns the [i]th column of the row.  The first
+      column has index [0].  Since CSV allows a file to have rows of
+      different lengths, this function never fails, it returns [""] if
+      the column does not exist. *)
+
+  val find : t -> string -> string
+  (** [find row header] return the value of the colum labelled with
+      [header] (or [""] if not such header has been declared).  *)
+
+  val to_list : t -> string list
+  (** [to_list row] convert [row] to the usual representation, the
+      list being in the column order. *)
+
+  val to_assoc : t -> (string * string) list
+  (** [to_assoc row] return an associative list of the row data as
+      [(header, value)].  If no header is given for a column, [""] is
+      used. *)
+
+  val with_header : t -> string list -> t
+  (** [with_header row h] return the [row] with headers [h].  If a
+      name in [h] is [""], the name present in [row] is used.  If a
+      name is duplicated. *)
+end
+
+(** Accessing rows (when a header was provided). *)
+module Rows : sig
+  val header : in_channel -> string list
+  (** The header declared for this channel.  *)
+
+  val next : in_channel -> Row.t
+  (** See {!Csv.next}.  If no header was declared for the channel,
+      this function will work but only access using {!Row.get} will
+      work. *)
+
+  val fold_left : f:('a -> Row.t -> 'a) -> init:'a -> in_channel -> 'a
+  (** See {!Csv.fold_left}. *)
+
+  val fold_right : f:(Row.t -> 'a -> 'a) -> in_channel -> 'a -> 'a
+  (** See {!Csv.fold_right}. *)
+
+  val iter : f:(Row.t -> unit) -> in_channel -> unit
+  (** See {!Csv.iter}. *)
+
+  val input_all : in_channel -> Row.t list
+  (** See {!Csv.input_all}. *)
+
+  val load : ?separator:char -> ?strip: bool ->
+             ?has_header: bool -> ?header: string list ->
+             ?backslash_escape: bool -> ?excel_tricks:bool ->
+             string -> Row.t list
+  (** See {!Csv.load}. *)
+
+  val current : in_channel -> Row.t
+  (** See {!Csv.current_record}. *)
+end
 
 (************************************************************************)
 (** {2 Functions acting on CSV data loaded in memory} *)

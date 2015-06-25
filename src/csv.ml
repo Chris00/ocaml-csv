@@ -44,8 +44,9 @@
 
 type t = string list list
 
-(* Specialize to int for speed *)
-let max i j = if (i:int) < j then j else i
+(* Specialize [min] to integers for performance reasons (> 150% faster). *)
+let min x y = if (x:int) <= y then x else y
+let max x y = if (x:int) >= y then x else y
 
 (* Add Buffer.add_subbytes for all compiler versions.
    Copied from the OCaml stdlib. *)
@@ -151,8 +152,98 @@ object
   method close_out : unit -> unit
 end
 
-(* Specialize [min] to integers for performance reasons (> 150% faster). *)
-let min x y = if (x:int) <= y then x else y
+(*
+ * Representation of rows accessible by both keys and numbers
+ *)
+
+module Header = struct
+  module M = Map.Make(String)
+
+  type t = { names : string array;
+             index : int M.t }
+  (* This is a correspondence between names and column numbers, in
+     both directions.  Names "" are not active and must not be in the
+     index. *)
+
+  let empty = { names = [| |];  index = M.empty }
+
+  let get t i = try t.names.(i) with _ -> ""
+  let find t name = M.find name t.index
+
+  let of_names names =
+    let names = Array.of_list names in
+    let index = ref M.empty in
+    for i = 0 to Array.length names - 1 do
+      if names.(i) <> "" then
+        if M.mem names.(i) !index then
+          names.(i) <- "" (* remove duplicate binding *)
+        else index := M.add names.(i) i !index
+    done;
+    { names;  index = !index }
+
+  let names t = Array.to_list t.names
+
+  (* [main] names take precedence over [t] ones. *)
+  let merge ~main t =
+    let index = ref main.index in
+    if Array.length main.names >= Array.length t.names then (
+      let names = Array.copy main.names in
+      for i = 0 to Array.length t.names - 1 do
+        if names.(i) = "" && t.names.(i) <> ""
+           && not(M.mem t.names.(i) !index) then (
+          names.(i) <- t.names.(i);
+          index := M.add names.(i) i !index
+        )
+      done;
+      { names;  index = !index }
+    )
+    else (
+      let names = Array.make (Array.length t.names) "" in
+      for i = 0 to Array.length main.names - 1 do
+        if main.names.(i) <> "" then
+          names.(i) <- main.names.(i)
+        else if t.names.(i) <> "" && not(M.mem t.names.(i) !index) then (
+          names.(i) <- t.names.(i);
+          index := M.add names.(i) i !index
+        )
+      done;
+      for i = Array.length names to Array.length names - 1 do
+        if t.names.(i) <> "" then (
+          names.(i) <- t.names.(i);
+          index := M.add names.(i) i !index
+        )
+      done;
+      { names;  index = !index }
+    )
+end
+
+
+module Row = struct
+  (* Datastructure with double access (integer and key). *)
+  type t = { header : Header.t;  row: string array }
+
+  let make header row = { header;  row = Array.of_list row }
+
+  let get t i = try t.row.(i) with _ -> ""
+
+  let find t key =
+    try t.row.(Header.find t.header key)
+    with _ -> ""
+
+  let to_list t = Array.to_list t.row
+
+  let to_assoc t =
+    let l = ref [] in
+    for i = Array.length t.row - 1 downto 0 do
+      l := (Header.get t.header i, t.row.(i)) :: !l
+    done;
+    !l
+
+  let with_header t h =
+    let h = Header.of_names h in
+    { t with header = Header.merge ~main:h t.header }
+end
+
 
 (*
  * Input
@@ -186,6 +277,9 @@ type in_channel = {
   current_field : Buffer.t; (* buffer reused to scan fields *)
   mutable record : string list; (* The current record *)
   mutable record_n : int; (* For error messages *)
+  has_header : bool;
+  header : Header.t; (* Convert the rows on demand (=> do not pay the price
+                        if one does not use that feature). *)
   separator : char;
   backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
@@ -477,32 +571,55 @@ let fold_right ~f ic a0 =
 
 
 (*
- * Creating a handle
+ * Creating a handle, possibly with header
  *)
 
-let of_in_obj ?(separator=',') ?(strip=true)
+let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
               ?(backslash_escape=false) ?(excel_tricks=true)
-              in_chan = {
-  in_chan = in_chan;
-  in_buf = Bytes.create buffer_len;
-  in0 = 0;
-  in1 = 0;
-  end_of_file = false;
-  current_field = Buffer.create 0xFF;
-  record = [];
-  record_n = 0; (* => first record numbered 1 *)
-  separator = separator;
-  backslash_escape;
-  excel_tricks = excel_tricks;
-  (* Stripping *)
-  is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
-  lstrip_buffer = (if strip then Buffer.clear else do_nothing);
-  rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
-  rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
-}
+              in_chan =
+  let ic = {
+      in_chan = in_chan;
+      in_buf = Bytes.create buffer_len;
+      in0 = 0;
+      in1 = 0;
+      end_of_file = false;
+      current_field = Buffer.create 0xFF;
+      record = [];
+      record_n = 0; (* => first record numbered 1 *)
+      has_header = has_header || header <> None;
+      header = Header.empty;
+      separator = separator;
+      backslash_escape;
+      excel_tricks = excel_tricks;
+      (* Stripping *)
+      is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
+      lstrip_buffer = (if strip then Buffer.clear else do_nothing);
+      rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
+      rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
+    } in
+  if has_header then (
+    (* Try to initialize headers with the first record that is read. *)
+    try
+      let names = next ic in
+      let h = Header.of_names names in
+      let h = match header with
+        | None -> h
+        | Some h0 -> Header.merge ~main:(Header.of_names h0) h in
+      { ic with header = h }
+    with End_of_file | Failure _ -> ic
+  )
+  else (
+    (* The channel does not contain a header. *)
+    match header with
+    | None -> ic
+    | Some h0 -> { ic with header = Header.of_names h0 }
+  )
 
-let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
-  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
+
+let of_channel ?separator ?strip ?has_header ?header
+               ?backslash_escape ?excel_tricks fh =
+  of_in_obj ?separator ?strip ?has_header ?header
+            ?backslash_escape ?excel_tricks
     (object
        val fh = fh
        method input s ofs len =
@@ -514,8 +631,10 @@ let of_channel ?separator ?strip ?backslash_escape ?excel_tricks fh =
        method close_in() = Pervasives.close_in fh
      end)
 
-let of_string ?separator ?strip ?backslash_escape ?excel_tricks str =
-  of_in_obj ?separator ?strip ?backslash_escape ?excel_tricks
+let of_string ?separator ?strip ?has_header ?header
+              ?backslash_escape ?excel_tricks str =
+  of_in_obj ?separator ?strip ?has_header ?header
+            ?backslash_escape ?excel_tricks
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -736,6 +855,53 @@ let save ?separator ?backslash_escape ?excel_tricks fname t =
   let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
   output_all csv t;
   close_out ch
+
+(*
+ * Reading rows with headers
+ *)
+
+module Rows = struct
+  let header ic = Header.names ic.header
+
+  let current ic = Row.make ic.header ic.record
+
+  let next ic = Row.make ic.header (next ic)
+
+  (* The convenience higher order functions are defined in terms of
+     [next] in the same way as above. *)
+
+  let fold_left ~f ~init:a0 ic =
+    let a = ref a0 in
+    try
+      while true do
+        a := f !a (next ic)
+      done;
+      assert false
+    with End_of_file -> !a
+
+  let iter ~f ic =
+    try  while true do f (next ic) done;
+    with End_of_file -> ()
+
+  let input_all ic =
+    List.rev(fold_left ~f:(fun l r -> r :: l) ~init:[] ic)
+
+  let fold_right ~f ic a0 =
+    (* We to collect all records before applying [f] -- last row first. *)
+    let lr = fold_left ~f:(fun l r -> r :: l) ~init:[] ic in
+    List.fold_left (fun a r -> f r a) a0 lr
+
+  let load ?separator ?strip ?has_header ?header
+           ?backslash_escape ?excel_tricks fname =
+    let fh = if fname = "-" then stdin else open_in fname in
+    let csv = of_channel ?separator ?strip ?has_header ?header
+                         ?backslash_escape ?excel_tricks fh in
+    let t = input_all csv in
+    close_in csv;
+    t
+
+end
+
 
 (*
  * Acting on CSV data in memory
