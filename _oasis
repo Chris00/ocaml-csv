@@ -59,6 +59,18 @@ Test conformity
   Command: $test
   Run: true
 
+Executable test_header
+  Path:           tests/
+  MainIs:         test_header.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Test header
+  Command: $test_header
+  Run: true
+
 
 SourceRepository master
   Type:       git
