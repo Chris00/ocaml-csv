@@ -1,11 +1,12 @@
 #								-*-conf-*-
 OASISFormat: 0.4
 Name:        csv
-Version:     1.3.5
+Version:     1.4
 Synopsis:    A pure OCaml library to read and write CSV files.
 Description: This is a pure OCaml library to read and write CSV files, 
   including all extensions used by Excel — e.g. quotes, newlines, 
-  8 bit characters in fields, \"0 etc.  The library comes with a handy 
+  8 bit characters in fields, \"0 etc.  A special representation of rows
+  of CSV files with a header is provided.  The library comes with a handy
   command line tool called csvtool for handling CSV files from shell scripts.
 Authors:     Richard Jones, Christophe Troestler
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
