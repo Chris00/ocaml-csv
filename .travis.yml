@@ -1,0 +1,20 @@
+language: c
+sudo: false
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - ocaml
+    - ocaml-native-compilers
+    - opam
+
+script: bash -ex .travis-ci.sh
+env:
+  - OPAM_SWITCH=system
+  - OPAM_SWITCH=3.12.1
+  - OPAM_SWITCH=4.01.0
+  - OPAM_SWITCH=4.02.2
+cache:
+  directories:
+  - $HOME/.opam
