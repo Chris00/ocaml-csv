@@ -795,7 +795,7 @@ let write_escaped oc field =
       really_output oc (Bytes.unsafe_of_string field) 0 len
     else (
       let field =
-        if n = 0 then Bytes.unsafe_of_string field
+        if n <= 0 then Bytes.unsafe_of_string field
         else (* There are some quotes to escape *)
           let s = Bytes.create (len + n) in
           let j = ref 0 in
