@@ -39,6 +39,7 @@ Executable csvtool
   Install:        true
 
 Executable example
+  Build$:         flag(tests)
   Path:           examples/
   MainIs:         example.ml
   BuildDepends:   csv
@@ -48,6 +49,7 @@ Executable example
 
 # Testing
 Executable test
+  Build$:         flag(tests)
   Path:           tests/
   MainIs:         test.ml
   BuildDepends:   csv
@@ -70,6 +72,20 @@ Executable test_header
 
 Test header
   Command: $test_header
+  Run: true
+
+Executable test_write
+  Build$:         flag(tests)
+  Path:           tests/
+  MainIs:         test_write.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Test write
+  WorkingDirectory: tests/
+  Command: $test_write
   Run: true
 
 

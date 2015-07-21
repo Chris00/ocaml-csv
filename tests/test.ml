@@ -106,4 +106,4 @@ let () =
 
 
 let () =
-  print_endline "All tests succeeded."
+  print_endline "All conformity tests succeeded."
