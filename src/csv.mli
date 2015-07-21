@@ -49,6 +49,7 @@ object
         to read, the number 0 will be returned.
 
         @raise End_of_file when there are no more bytes to read. *)
+
   method close_in : unit -> unit
     (** Closes the channel for input. *)
 end
@@ -61,6 +62,7 @@ object
         [s.[ofs .. ofs+len-1]].  Return the number of bytes actually
         written.  When the channel is non-blocking, and there are
         currently no bytes to write, the number 0 must be returned.  *)
+
   method close_out : unit -> unit
     (** Flushes the buffer, if any, and closes the channel for output. *)
 end
