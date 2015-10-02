@@ -190,21 +190,27 @@ let cmd_readable ~input_sep ~chan files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
   Csv.save_out_readable chan csv
 
+let iter_csv_rows ~input_sep ~f files =
+  List.iter (fun filename ->
+             let in_chan, close =
+               match filename with
+               | "-" -> stdin, false
+               | filename -> open_in filename, true in
+             try
+               Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
+               if close then close_in in_chan
+             with Exit ->
+               if close then close_in in_chan
+            ) files
+
+
 let cmd_cat ~input_sep ~output_sep ~chan files =
   (* Avoid loading the whole file into memory. *)
   let chan = Csv.to_channel ~separator:output_sep chan in
   let f row =
     Csv.output_record chan row
   in
-  List.iter (
-    fun filename ->
-      let in_chan, close =
-        match filename with
-        | "-" -> stdin, false
-        | filename -> open_in filename, true in
-      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-      if close then close_in in_chan
-  ) files
+  iter_csv_rows ~input_sep ~f files
 
 let cmd_paste ~input_sep ~output_sep ~chan files =
   (* Return the 1st row, concatenation of all 1st rows; whether all
@@ -305,15 +311,7 @@ let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
     let csv = Csv.set_columns ~cols csv in
     Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
   in
-  List.iter (
-    fun filename ->
-      let in_chan, close =
-        match filename with
-        | "-" -> stdin, false
-        | filename -> open_in filename, true in
-      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-      if close then close_in in_chan
-  ) files
+  iter_csv_rows ~input_sep ~f files
 
 let cmd_set_rows ~input_sep ~output_sep ~chan rows files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
@@ -331,18 +329,9 @@ let cmd_head ~input_sep ~output_sep ~chan rows files =
       decr nr_rows;
       Csv.output_record chan row
     )
+    else raise Exit
   in
-  List.iter (
-    fun filename ->
-      if !nr_rows > 0 then (
-        let in_chan, close =
-          match filename with
-          | "-" -> stdin, false
-          | filename -> open_in filename, true in
-        Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-        if close then close_in in_chan
-      )
-  ) files
+  iter_csv_rows ~input_sep ~f files
 
 let cmd_drop ~input_sep ~output_sep ~chan rows files =
   (* Avoid loading the whole file into memory. *)
@@ -354,15 +343,7 @@ let cmd_drop ~input_sep ~output_sep ~chan rows files =
     else
       decr nr_rows
   in
-  List.iter (
-    fun filename ->
-      let in_chan, close =
-        match filename with
-        | "-" -> stdin, false
-        | filename -> open_in filename, true in
-      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-      if close then close_in in_chan
-  ) files
+  iter_csv_rows ~input_sep ~f files
 
 let cmd_square ~input_sep ~output_sep ~chan files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
@@ -419,15 +400,7 @@ let cmd_call ~input_sep command files =
       exit code
     )
   in
-  List.iter (
-    fun filename ->
-      let in_chan, close =
-        match filename with
-        | "-" -> stdin, false
-        | filename -> open_in filename, true in
-      Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-      if close then close_in in_chan
-  ) files
+  iter_csv_rows ~input_sep ~f files
 
 let rec uniq = function
   | [] -> []
