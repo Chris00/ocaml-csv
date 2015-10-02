@@ -385,6 +385,82 @@ let cmd_transpose ~input_sep ~output_sep ~chan files =
              Csv.output_all (Csv.to_channel ~separator:output_sep chan) tr
             ) files
 
+
+type format_el = String of string | Col of int
+
+let is_digit c = '0' <= c && c <= '9'
+
+(* Return the non-negative number starting at [i0 < i1 < len_s =
+   String.length s] and the index of the first character after that
+   number.  It is expected that [s.[i0]] be a digit, otherwise
+   [Failure] is be raised. *)
+let rec get_digit s len_s i0 i1 =
+  if i1 < len_s then
+    if is_digit s.[i1] then get_digit s len_s i0 (i1 + 1)
+    else (int_of_string(String.sub s i0 (i1 - i0)), i1)
+  else (* i0 < i1 (>)= len_s *)
+    (int_of_string(String.sub s i0 (len_s - i0)), len_s)
+
+(* Prepend to the format [fmt] the substring s.[i0 .. i1 - 1] unless
+   it is empty. *)
+let prepend_substring s i0 i1 fmt =
+  if i0 < i1 then String(String.sub s i0 (i1 - i0)) :: fmt
+  else (* i0 ≥ i1, empty substring *) fmt
+
+(* [i0 ≤ i1 ≤ len_s] *)
+let rec split_format s len_s i0 i1 =
+  if i1 >= len_s then
+    if i0 < len_s then [String(String.sub s i0 (len_s - i0))]
+    else []
+  else if s.[i1] = '%' then
+    let i2 = i1 + 1 in
+    if i2 >= len_s then
+      split_format s len_s i0 i2 (* consider a final '%' as a normal char *)
+    else if is_digit s.[i2] then
+      let col, i3 = get_digit s len_s i2 (i2 + 1) in
+      prepend_substring s i0 i1 (Col col :: split_format s len_s i3 i3)
+    else if s.[i2] = '(' then
+      if i2 + 1 < len_s && is_digit s.[i2 + 1] then (
+        let col, i3 = get_digit s len_s (i2 + 1) (i2 + 2) in
+        if i3 >= len_s || s.[i3] <> ')' then (
+          let r = String.sub s i1 (i3 - i1) in
+          failwith(sprintf "Column format %S not terminated by ')'" r)
+        );
+        prepend_substring
+          s i0 i1 (Col col :: split_format s len_s (i3 + 1) (i3 + 1))
+      )
+      else failwith "Column format %( not followed by a number"
+    else if s.[i2] = '%' then
+      let i3 = i2 + 1 in
+      String(String.sub s i0 (i1 - i0 + 1)) :: split_format s len_s i3 i3
+    else (* % + non-digit, consider it a literal '%' *)
+      split_format s len_s i0 i2
+  else if s.[i1] = '\\' then
+    (* Handle usual escapes. *)
+    let i2 = i1 + 1 in
+    if i2 >= len_s then split_format s len_s i0 i2
+    else if s.[i2] = 'n' then
+      let i3 = i2 + 1 in
+      prepend_substring s i0 i1 (String "\n" :: split_format s len_s i3 i3)
+    else if s.[i2] = 'r' then
+      let i3 = i2 + 1 in
+      prepend_substring s i0 i1 (String "\r" :: split_format s len_s i3 i3)
+    else if s.[i2] = 't' then
+      let i3 = i2 + 1 in
+      prepend_substring s i0 i1 (String "\t" :: split_format s len_s i3 i3)
+    else split_format s len_s i0 i2
+  else
+    split_format s len_s i0 (i1 + 1)
+
+let print_format row = function
+  | String s -> print_string s
+  | Col c -> try print_string (List.nth row (c - 1)) with _ -> ()
+
+let cmd_format ~input_sep fmt files =
+  let fmt = split_format fmt (String.length fmt) 0 0 in
+  iter_csv_rows ~input_sep files
+                ~f:(fun row -> List.iter (print_format row) fmt)
+
 let cmd_call ~input_sep command files =
   (* Avoid loading the whole file into memory. *)
   (* Use bash if it exists to enable the [command] to be an exported
@@ -481,6 +557,7 @@ and trim_flags flags =
 (* Process the arguments. *)
 let usage =
   "csvtool - Copyright (C) 2005-2006 Richard W.M. Jones, Merjis Ltd.
+           - Copyright (C) 2007- Richard W.M. Jones & Christophe Troestler
 
 csvtool is a tool for performing manipulations on CSV files from shell scripts.
 
@@ -606,6 +683,17 @@ Commands:
 
   transpose input.csv
     Transpose the lines and columns of the CSV file.
+
+  format fmt
+    Print each row of the files according to the format 'fmt'.
+    Each occurrence of \"%i\" or \"%(i)\" (where 'i' is a number) in
+    'fmt' is replaced by the content of column number 'i' (remember
+    that the leftmost column is numbered 1 in the traditional
+    spreadsheet fashion).  A literal percent is obtained by doubling it.
+    The usual escape sequences \\n, \\r, and \\t are recognized.
+
+      Example:
+        csvtool format '%(1) -> %8%%\\n' input.csv
 
   call command
     This calls the external command (or shell function) 'command'
@@ -775,6 +863,8 @@ let () =
          cmd_drop ~input_sep ~output_sep ~chan rows files
      | "transpose" :: files ->
          cmd_transpose ~input_sep ~output_sep ~chan files
+     | "format" :: fmt :: files ->
+        cmd_format ~input_sep fmt files
      | "call" :: command :: files ->
          cmd_call ~input_sep command files
      | "trim" :: flags :: files ->
