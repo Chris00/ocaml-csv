@@ -137,12 +137,16 @@ let cols_of_colspec colspec row =
 
 (* The actual commands. *)
 let cmd_cols ~input_sep ~output_sep ~chan colspec files =
-  List.iter (
-    fun filename ->
-      let csv = Csv.load ~separator:input_sep filename in
-      let csv = List.map (cols_of_colspec colspec) csv in
-      Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
-  ) files
+  List.iter (fun filename ->
+      let fh = if filename = "-" then stdin else open_in filename in
+      let csv_in = Csv.of_channel ~separator:input_sep fh in
+      let csv_out = Csv.to_channel ~separator:output_sep chan in
+      Csv.iter csv_in ~f:(fun row ->
+          Csv.output_record csv_out (cols_of_colspec colspec row)
+        );
+      Csv.close_in csv_in;
+      Csv.close_out csv_out
+    ) files
 
 let cmd_namedcols ~input_sep ~output_sep ~chan names files =
   List.iter (
