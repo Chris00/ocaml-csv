@@ -94,7 +94,7 @@ let parse_colspec ~count_zero colspec =
              Col (int_of_string col)
         )
       with
-        Failure "int_of_string" ->
+        Failure _ ->
           failwith (colspec ^ ":" ^ col ^ ": invalid column-spec")
   ) cols in
 
@@ -124,7 +124,7 @@ let cols_of_colspec colspec row =
     | [] -> []
     | Col c :: rest ->
         (try List.nth row c
-         with Failure "nth" -> "") :: loop rest
+         with Failure _ -> "") :: loop rest
     | Range (s, e) :: rest ->
         let width = e-s+1 in
         let range = take width (drop s row) in
