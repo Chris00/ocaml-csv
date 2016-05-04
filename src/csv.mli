@@ -245,6 +245,9 @@ val to_buffer : ?separator:char ->
                 Buffer.t -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a buffer. *)
 
+val close_out : out_channel -> unit
+(** [close_out oc] close the channel [oc].  The underlying channel is
+    closed as well. *)
 
 val output_record : out_channel -> string list -> unit
   (** [output_record oc r] write the record [r] is CSV form to the

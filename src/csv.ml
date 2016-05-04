@@ -743,6 +743,9 @@ let to_buffer ?separator ?backslash_escape ?excel_tricks buf =
        method close_out () = ()
      end)
 
+let close_out oc =
+  oc.out_chan#close_out()
+
 let rec really_output oc s ofs len =
   let w = oc.out_chan#output s ofs len in
   if w < len then really_output oc s (ofs+w) (len-w)
@@ -854,7 +857,7 @@ let save ?separator ?backslash_escape ?excel_tricks fname t =
   let ch = open_out fname in
   let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
   output_all csv t;
-  close_out ch
+  Pervasives.close_out ch
 
 (*
  * Reading rows with headers
