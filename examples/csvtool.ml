@@ -182,12 +182,11 @@ let cmd_width ~input_sep ~chan files =
   fprintf chan "%d\n" width
 
 let cmd_height ~input_sep ~chan files =
-  let height = List.fold_left (
-    fun height filename ->
-      let csv = Csv.load ~separator:input_sep filename in
-      let height = height + Csv.lines csv in
-      height
-  ) 0 files in
+  let add_height height filename =
+    let fh = if filename = "-" then stdin else open_in filename in
+    let csv_in = Csv.of_channel ~separator:input_sep fh in
+    Csv.fold_left ~f:(fun h _ -> h + 1) ~init:height csv_in in
+  let height = List.fold_left add_height 0 files in
   fprintf chan "%d\n" height
 
 let cmd_readable ~input_sep ~chan files =
