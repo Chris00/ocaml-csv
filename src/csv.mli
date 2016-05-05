@@ -478,6 +478,13 @@ val associate : string list -> t -> (string * string) list list
     by the spreadsheet is not much larger.
   *)
 
+val combine : header: string list -> string list -> (string * string) list
+(** [combine ~header row] returns a row with elements [(h, x)] where
+    [h] is the header name and [x] the corresponding row entry.  If
+    the [row] has less entries than [header], they are interpreted as
+    being empty.  See {!associate} which applies this function to all
+    rows. *)
+
 val map : f:(string -> string) -> t -> t
 (** [map f csv] applies [f] to all entries of [csv] and returns the
     resulting CSV. *)

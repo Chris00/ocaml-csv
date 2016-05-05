@@ -1102,18 +1102,13 @@ let to_array csv =
 let of_array csv =
   List.map Array.to_list (Array.to_list csv)
 
+let rec combine ~header row = match header, row with
+  | [], _ -> []
+  | _, [] -> List.map (fun h -> (h, "")) header
+  | h0 :: h, x :: r -> (h0, x) :: combine h r
+
 let associate header data =
-  let nr_cols = List.length header in
-  let rec trunc = function
-    | 0, _ -> []
-    | n, [] -> "" :: trunc (n-1, [])
-    | n, (x :: xs) -> x :: trunc (n-1, xs)
-  in
-  List.map (
-    fun row ->
-      let row = trunc (nr_cols, row) in
-      List.combine header row
-  ) data
+  List.map (fun row -> combine header row) data
 
 let map ~f csv =
   List.map (fun row -> List.map (fun el -> f el) row) csv
