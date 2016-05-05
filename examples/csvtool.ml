@@ -71,6 +71,34 @@ let take n l =
   dummy.tl
 (*------------------------------ end of extlib code *)
 
+(** Generic [iter] function reading a list of CSV files.  The function
+    [f] can raise [Exit] to mean that no further processing should be done. *)
+let csv_iter ~input_sep ~f files =
+  try
+    List.iter (fun filename ->
+        let fh = if filename = "-" then stdin else open_in filename in
+        let csv_in = Csv.of_channel ~separator:input_sep fh in
+        try (f filename csv_in : unit);
+            Csv.close_in csv_in;
+        with e -> Csv.close_in csv_in; raise e
+      ) files
+  with Exit -> ()
+
+let iter_csv_rows ~input_sep ~f files =
+  csv_iter ~input_sep files ~f:(fun _ csv_in -> Csv.iter ~f csv_in)
+
+(** Generic [fold] function on a list of CSV files. *)
+let csv_fold ~input_sep ~f ~init files =
+  List.fold_left (fun a filename ->
+      let fh = if filename = "-" then stdin else open_in filename in
+      let csv_in = Csv.of_channel ~separator:input_sep fh in
+      let a = f a csv_in in
+      Csv.close_in csv_in;
+      a
+    ) init files
+
+
+
 (* Parse column specs. *)
 type colspec = range list
 and range =
@@ -137,75 +165,48 @@ let cols_of_colspec colspec row =
 
 (* The actual commands. *)
 let cmd_cols ~input_sep ~output_sep ~chan colspec files =
-  List.iter (fun filename ->
-      let fh = if filename = "-" then stdin else open_in filename in
-      let csv_in = Csv.of_channel ~separator:input_sep fh in
-      let csv_out = Csv.to_channel ~separator:output_sep chan in
-      Csv.iter csv_in ~f:(fun row ->
-          Csv.output_record csv_out (cols_of_colspec colspec row)
-        );
-      Csv.close_in csv_in;
-      Csv.close_out csv_out
-    ) files
+  let csv_out = Csv.to_channel ~separator:output_sep chan in
+  iter_csv_rows ~input_sep files ~f:(fun row ->
+      Csv.output_record csv_out (cols_of_colspec colspec row));
+  Csv.close_out csv_out
 
 let cmd_namedcols ~input_sep ~output_sep ~chan names files =
-  List.iter (
-    fun filename ->
-      let csv = Csv.load ~separator:input_sep filename in
-      let header, data =
-        match csv with
-        | [] -> failwith "no rows in this CSV file"
-        | h :: t -> h, t in
-      (* Do the headers requested exist in the CSV file?  If not,
-       * throw an error.
-       *)
-      List.iter (
-        fun name ->
-          if not (List.mem name header) then
-            failwith ("namedcol: requested header not in CSV file: " ^ name)
-      ) names;
-      let data = Csv.associate header data in
-      let data = List.map (
-        fun row -> List.map (fun name -> List.assoc name row) names
-      ) data in
-      let data = names :: data in
-      Csv.output_all (Csv.to_channel ~separator:output_sep chan) data
-  ) files
+  let csv_out = Csv.to_channel ~separator:output_sep chan in
+  (* Output the header of the final file. *)
+  Csv.output_record csv_out names;
+  csv_iter ~input_sep files ~f:(fun fname csv_in ->
+      match (try Some(Csv.next csv_in) with End_of_file -> None) with
+      | None -> ()
+      | Some header ->
+         (* Do the headers requested exist in the CSV file?  If not,
+            throw an error.  *)
+         List.iter (fun name ->
+             if not (List.mem name header) then
+               failwith (sprintf "namedcol: requested header %S not in CSV \
+                                  file %S" name fname)
+        ) names;
+      Csv.iter csv_in ~f:(fun row ->
+          let row = Csv.combine ~header row in
+          let named = List.map (fun name -> List.assoc name row) names in
+          Csv.output_record csv_out named;
+        )
+    );
+  Csv.close_out csv_out
 
 let cmd_width ~input_sep ~chan files =
-  let width = List.fold_left (
-    fun width filename ->
-      let csv = Csv.load ~separator:input_sep filename in
-      let width = max width (Csv.columns csv) in
-      width
-  ) 0 files in
+  let width = csv_fold ~input_sep files ~init:0 ~f:(fun w csv_in ->
+                  Csv.fold_left csv_in ~init:w ~f:(fun w row ->
+                      max w (List.length row))) in
   fprintf chan "%d\n" width
 
 let cmd_height ~input_sep ~chan files =
-  let add_height height filename =
-    let fh = if filename = "-" then stdin else open_in filename in
-    let csv_in = Csv.of_channel ~separator:input_sep fh in
-    Csv.fold_left ~f:(fun h _ -> h + 1) ~init:height csv_in in
-  let height = List.fold_left add_height 0 files in
+  let height = csv_fold ~input_sep files ~init:0 ~f:(fun h csv_in ->
+                   Csv.fold_left ~f:(fun h _ -> h + 1) ~init:h csv_in) in
   fprintf chan "%d\n" height
 
 let cmd_readable ~input_sep ~chan files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
   Csv.save_out_readable chan csv
-
-let iter_csv_rows ~input_sep ~f files =
-  List.iter (fun filename ->
-             let in_chan, close =
-               match filename with
-               | "-" -> stdin, false
-               | filename -> open_in filename, true in
-             try
-               Csv.iter ~f (Csv.of_channel ~separator:input_sep in_chan);
-               if close then close_in in_chan
-             with Exit ->
-               if close then close_in in_chan
-            ) files
-
 
 let cmd_cat ~input_sep ~output_sep ~chan files =
   (* Avoid loading the whole file into memory. *)
@@ -309,17 +310,24 @@ let cmd_pastecol ~input_sep ~output_sep ~chan colspec1 colspec2 file1 file2 =
 
 let cmd_set_columns ~input_sep ~output_sep ~chan cols files =
   (* Avoid loading the whole file into memory. *)
+  let csv_out = Csv.to_channel ~separator:output_sep chan in
   let f row =
-    let csv = [row] in
-    let csv = Csv.set_columns ~cols csv in
-    Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
-  in
-  iter_csv_rows ~input_sep ~f files
+    match Csv.set_columns ~cols [row] with
+    | [row] -> Csv.output_record csv_out row
+    | _ -> assert false in
+  iter_csv_rows ~input_sep ~f files;
+  Csv.close_out csv_out
 
 let cmd_set_rows ~input_sep ~output_sep ~chan rows files =
-  let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
-  let csv = Csv.set_rows ~rows csv in
-  Csv.output_all (Csv.to_channel ~separator:output_sep chan) csv
+  let rows = ref rows in
+  let csv_out = Csv.to_channel ~separator:output_sep chan in
+  iter_csv_rows ~input_sep files ~f:(fun row ->
+      if !rows <= 0 then raise Exit;
+      Csv.output_record csv_out row;
+      decr rows;
+    );
+  for _i = 1 to !rows do Csv.output_record csv_out [] done;
+  Csv.close_out csv_out
 
 let cmd_head ~input_sep ~output_sep ~chan rows files =
   (* Avoid loading the whole file into memory, or even loading
