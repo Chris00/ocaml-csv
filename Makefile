@@ -3,7 +3,7 @@ PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
 DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
-  _tags Makefile setup.ml \
+  _tags Makefile setup.ml _oasis_remove_.ml csv.install \
   $(filter-out %~, $(wildcard src/*) $(wildcard examples/*) $(wildcard tests/*))
 
 WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
@@ -30,8 +30,11 @@ csvtool: all
 	./csvtool.native pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
+opam csv.install: _oasis
+	oasis2opam --local
+
 # "Force" a tag to be defined for each released tarball
-dist tar: setup.ml
+dist tar: setup.ml opam
 	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
 	@ if [ -z "$(PKGVERSION)" ]; then \
 		echo "PKGVERSION not defined"; exit 1; fi
