@@ -33,7 +33,6 @@ csvtool: all
 opam csv.install: _oasis
 	oasis2opam --local
 
-# "Force" a tag to be defined for each released tarball
 dist tar: setup.ml opam
 	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
 	@ if [ -z "$(PKGVERSION)" ]; then \
