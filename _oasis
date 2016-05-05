@@ -63,6 +63,7 @@ Test conformity
   Run: true
 
 Executable test_header
+  Build$:         flag(tests)
   Path:           tests/
   MainIs:         test_header.ml
   BuildDepends:   csv
