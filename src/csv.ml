@@ -1105,7 +1105,7 @@ let of_array csv =
 let rec combine ~header row = match header, row with
   | [], _ -> []
   | _, [] -> List.map (fun h -> (h, "")) header
-  | h0 :: h, x :: r -> (h0, x) :: combine h r
+  | h0 :: h, x :: r -> (h0, x) :: combine ~header:h r
 
 let associate header data =
   List.map (fun row -> combine header row) data
