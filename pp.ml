@@ -11,10 +11,10 @@ let read_all fname =
   Buffer.add_channel b fh len;
   Buffer.contents b
 
-let write fname txt =
+let write fname txts =
   (try Unix.chmod fname 0o666; Unix.unlink fname with _ -> ());
   let fh = open_out fname in
-  output_string fh txt;
+  List.iter (fun txt -> output_string fh txt) txts;
   close_out fh;
   (try Unix.chmod fname 0o466
    with Unix.Unix_error(e, _, _) ->
@@ -24,15 +24,16 @@ let substitute fname_in fname_out tr =
   let txt = read_all fname_in in
   let txt = List.fold_left (fun t (re, s) ->
                 Str.global_replace (Str.regexp re) s t) txt tr in
-  write fname_out txt
+  write fname_out [Printf.sprintf "#1 %S\n" fname_in;
+                   txt]
 
 let () =
   let pp = Filename.concat "src" "csv.pp.ml" in
-  substitute pp (Filename.concat "src" "csv_internal.ml")
+  substitute pp (Filename.concat "src" "csv_std.ml")
     [" +LWT_t", "";
-     " +IF_LWT(\\([^(),]*\\),\\([^(),]*\\))", "\\2";
+     "IF_LWT(\\([^,]*\\), *\\([^(),]*\\))", "(* \\1 *)\\2";
     ];
   substitute pp (Filename.concat "src" "csv_lwt.ml")
     [" +LWT_t", " Lwt.t";
-     " +IF_LWT(\\([^(),]*\\),\\([^(),]*\\))", " \\1";
+     "IF_LWT( *\\([^,]*\\), *\\([^(),]*\\))", " \\1(* \\2 *)";
     ]
