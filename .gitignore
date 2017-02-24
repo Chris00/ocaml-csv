@@ -25,5 +25,7 @@ setup.log
 setup.ml
 src/csv.mllib
 API.docdir
+src/csv_internal.ml
+src/csv_lwt.ml
 # Tarball
 *.tar.gz

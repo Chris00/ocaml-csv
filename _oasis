@@ -14,11 +14,13 @@ Categories:  http://database, http://science
 License:     LGPL-2.1 with OCaml linking exception
 Homepage:    https://github.com/Chris00/ocaml-csv
 Plugins:     META (0.4), StdFiles (0.4)
+PreConfCommand: ocaml pp.ml
 
 Library csv
   Path:       src
   BuildTools: ocamlbuild
   Modules:    Csv
+  InternalModules: Csv_internal
   BuildDepends: bytes
 
 Document API
