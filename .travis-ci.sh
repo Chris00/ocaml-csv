@@ -1,5 +1,5 @@
 
-OPAM_PKGS="oasis base-bytes"
+OPAM_PKGS="oasis base-bytes lwt"
 
 export OPAMYES=1
 
