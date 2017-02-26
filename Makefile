@@ -11,7 +11,7 @@ WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
 .PHONY: all byte native configure doc test install uninstall reinstall \
   upload-doc
 
-all byte native: configure
+all byte native: configure opam
 	ocaml setup.ml -build
 
 configure: setup.ml
@@ -31,7 +31,7 @@ csvtool: all
 	  tests/testcsv9.csv tests/testcsv9.csv
 
 opam csv.install: _oasis
-	oasis2opam --local
+	oasis2opam --local -y
 
 dist tar: setup.ml opam
 	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
