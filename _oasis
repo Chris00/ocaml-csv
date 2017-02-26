@@ -15,6 +15,7 @@ License:     LGPL-2.1 with OCaml linking exception
 Homepage:    https://github.com/Chris00/ocaml-csv
 BugReports:  https://github.com/Chris00/ocaml-csv/issues
 Plugins:     META (0.4), StdFiles (0.4)
+OCamlVersion: >= 4.00.1
 PreConfCommand: ocaml pp.ml
 
 Flag lwt
