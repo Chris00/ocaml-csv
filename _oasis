@@ -10,9 +10,10 @@ Description: This is a pure OCaml library to read and write CSV files,
   command line tool called csvtool for handling CSV files from shell scripts.
 Authors:     Richard Jones, Christophe Troestler
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
-Categories:  http://database, http://science
+Tags:        database, science
 License:     LGPL-2.1 with OCaml linking exception
 Homepage:    https://github.com/Chris00/ocaml-csv
+BugReports:  https://github.com/Chris00/ocaml-csv/issues
 Plugins:     META (0.4), StdFiles (0.4)
 PreConfCommand: ocaml pp.ml
 
