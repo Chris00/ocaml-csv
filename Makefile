@@ -15,7 +15,7 @@ all byte native: configure
 	ocaml setup.ml -build
 
 configure: setup.ml
-	ocaml $< -configure --enable-tests
+	ocaml $< -configure --enable-tests --enable-lwt
 
 setup.ml: _oasis
 	oasis setup -setup-update dynamic

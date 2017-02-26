@@ -16,12 +16,26 @@ Homepage:    https://github.com/Chris00/ocaml-csv
 Plugins:     META (0.4), StdFiles (0.4)
 PreConfCommand: ocaml pp.ml
 
+Flag lwt
+  Description: Whether the Lwt package is present
+  Default: false
+
 Library csv
   Path:       src
   BuildTools: ocamlbuild
   Modules:    Csv
-  InternalModules: Csv_internal
+  InternalModules: Csv_std, Csv_utils, Csv_row
   BuildDepends: bytes
+
+Library csv_lwt
+  Build$:     flag(lwt)
+  Path:       src
+  BuildTools: ocamlbuild
+  Modules:    Csv_lwt
+  InternalModules: Csv_utils, Csv_row
+  BuildDepends: lwt, bytes, csv
+  FindlibName:   lwt
+  FindlibParent: csv
 
 Document API
   Title:           API reference for Csv

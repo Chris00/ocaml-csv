@@ -287,7 +287,7 @@ val save_out_readable : Pervasives.out_channel -> t -> unit
 
 (** A row with a header. *)
 module Row : sig
-  type t
+  type t = Csv_row.t
   (** Representation of a row whose columns are accessible both by
       indices and by headers names. *)
 

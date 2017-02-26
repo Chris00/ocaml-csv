@@ -23,17 +23,39 @@ let write fname txts =
 let substitute fname_in fname_out tr =
   let txt = read_all fname_in in
   let txt = List.fold_left (fun t (re, s) ->
-                Str.global_replace (Str.regexp re) s t) txt tr in
+                let repl = Str.global_replace (Str.regexp re) s in
+                (* Replace twice to perform the substitution in macro args *)
+                repl(repl t)) txt tr in
   write fname_out [Printf.sprintf "#1 %S\n" fname_in;
                    txt]
+
+let balanced_braces4 =
+  let b = "\\([^()]\\|(" in
+  let e = ")\\)*" in
+  String.concat "" ["\\([^(),]\\|("; b; b; b; "[^()]*"; e; e; e; e]
 
 let () =
   let pp = Filename.concat "src" "csv.pp.ml" in
   substitute pp (Filename.concat "src" "csv_std.ml")
     [" +LWT_t", "";
-     "IF_LWT(\\([^,]*\\), *\\([^(),]*\\))", "(* \\1 *)\\2";
+     ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+      "(* \\1 *)\\6");
+     ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+      "try \\1 with \\6");
+     (* Payload surrounded by braces to avoid absorbing "in" in \2 *)
+     ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
+      "let \\1 = \\2 in");
+     ";%lwt", ";";
+     "return", "";
     ];
   substitute pp (Filename.concat "src" "csv_lwt.ml")
     [" +LWT_t", " Lwt.t";
-     "IF_LWT( *\\([^,]*\\), *\\([^(),]*\\))", " \\1(* \\2 *)";
+     ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+      " \\1(* \\6 *)");
+     ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+      "Lwt.catch (fun () -> \\1) (function \\6 | exn -> Lwt.fail exn)");
+     ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
+      "(\\2) >>= fun \\1 -> ");
+     ";%lwt", " >>= fun () -> ";
+     "raise", "Lwt.fail";
     ]
