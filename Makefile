@@ -3,7 +3,7 @@ PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
 DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
-  _tags Makefile setup.ml _oasis_remove_.ml csv.install \
+  _tags Makefile setup.ml csv.install \
   $(filter-out %~, $(wildcard src/*) $(wildcard examples/*) $(wildcard tests/*))
 
 WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
