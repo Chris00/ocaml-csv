@@ -148,7 +148,7 @@ val load : ?separator:char -> ?strip: bool ->
 
       @param excel_tricks enables Excel tricks, namely the fact that '"'
       followed by '0' in a quoted string means ASCII NULL and the fact
-      that a field of the form ="..." only returns the string inside the
+      that a field of the form = "..." only returns the string inside the
       quotes.  Default: [true].  *)
 
 val load_in : ?separator:char -> ?strip: bool ->
@@ -230,7 +230,7 @@ val to_out_obj : ?separator:char ->
       is nonstandard CSV to it is set to [false] by default.
 
       @param excel_tricks enables Excel tricks, namely the fact that
-      '\000' is represented as '"' followed by '0' and the fact that a
+      '\000' is represented as '\"' followed by '0' and the fact that a
       field with leading or trailing spaces or a leading '0' will be
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
       [false].  *)
