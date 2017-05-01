@@ -51,7 +51,7 @@ Document API
 Executable csvtool
   Path:           examples/
   MainIs:         csvtool.ml
-  BuildDepends:   csv
+  BuildDepends:   csv, unix
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        true

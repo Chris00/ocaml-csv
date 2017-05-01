@@ -29,6 +29,7 @@ build-test: [
 build-doc: [ "ocaml" "setup.ml" "-doc" ]
 depends: [
   "base-bytes"
+  "base-unix" {build}
   "oasis" {build & >= "0.4.7"}
   "ocamlbuild" {build}
   "ocamlfind" {build & >= "1.5"}

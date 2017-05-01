@@ -477,15 +477,33 @@ let cmd_call ~input_sep command files =
   (* Use bash if it exists to enable the [command] to be an exported
      bash function. *)
   let want_bash = Sys.os_type = "Unix" && Sys.file_exists "/bin/bash" in
-  let f row =
-    let cmd = String.concat " " (command :: List.map Filename.quote row) in
-    let cmd = if want_bash then "/bin/bash -c " ^ (Filename.quote cmd)
-              else cmd in
-    let code = Sys.command cmd in
-    if code <> 0 then (
-      eprintf "%s: terminated with exit code %d\n" command code;
-      exit code
+  let f =
+    if want_bash then (
+      fun row ->
+      let cmd = String.concat " " (command :: List.map Filename.quote row) in
+      let pid = Unix.create_process "/bin/bash" [| "bash"; "-c"; cmd |]
+                  Unix.stdin Unix.stdout Unix.stderr in
+      match snd(Unix.waitpid [] pid) with
+      | Unix.WEXITED code ->
+         if code <> 0 then (
+           eprintf "%s: terminated with exit code %d\n" command code;
+           exit code
+         )
+      | Unix.WSIGNALED sg ->
+         eprintf "%s: killed by signal %d\n" command sg;
+         exit 1
+      | Unix.WSTOPPED sg ->
+         eprintf "%s: stopped by signal %d\n" command sg;
+         exit 1
     )
+    else (
+      fun row ->
+      let cmd = String.concat " " (command :: List.map Filename.quote row) in
+      let code = Sys.command cmd in
+      if code <> 0 then (
+        eprintf "%s: terminated with exit code %d\n" command code;
+        exit code
+    ))
   in
   iter_csv_rows ~input_sep ~f files
 
