@@ -23,7 +23,7 @@ If you prefer to compile by hand, run
     ocaml setup.ml -build
     ocaml setup.ml -install
 
-Note that This package uses [oasis](https://github.com/ocaml/oasis) to
+Note that this package uses [oasis](https://github.com/ocaml/oasis) to
 generate its configure, build and install scripts.  However, you only
 need `oasis` if you want to compile the development version.
 
