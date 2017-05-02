@@ -1,0 +1,23 @@
+#							-*-conf-unix-*-
+_build/
+data/
+examples/
+opam/
+src/
+tests/
+*.ml
+.merlin
+*.native
+*.byte
+setup.*
+.travis*
+*.docdir
+INSTALL.txt
+LICENSE.txt
+Makefile
+README.md
+_oasis
+_tags
+csv.install
+# Tarball
+*.tar.gz
