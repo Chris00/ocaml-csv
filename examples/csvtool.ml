@@ -507,14 +507,6 @@ let cmd_call ~input_sep command files =
   in
   iter_csv_rows ~input_sep ~f files
 
-let rec uniq = function
-  | [] -> []
-  | [x] -> [x]
-  | x :: y :: xs when Pervasives.compare x y = 0 ->
-      uniq (x :: xs)
-  | x :: y :: xs ->
-      x :: uniq (y :: xs)
-
 let cmd_join ~input_sep ~output_sep ~chan colspec1 colspec2 files =
   (* Load in the files separately. *)
   let csvs = List.map (Csv.load ~separator:input_sep) files in
