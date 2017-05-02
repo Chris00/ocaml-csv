@@ -6,7 +6,7 @@ DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
   _tags Makefile setup.ml csv.install pp.ml \
   $(filter-out %~, $(wildcard src/*) $(wildcard examples/*) $(wildcard tests/*))
 
-WEB = shell.forge.ocamlcore.org:/home/groups/csv/htdocs
+WEB = san@math.umons.ac.be:~/public_html/software/csv/
 
 .PHONY: all byte native configure doc test install uninstall reinstall \
   upload-doc

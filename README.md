@@ -37,3 +37,10 @@ With OPAM:
 Manually (from the source directory):
 
     ocaml setup.ml -uninstall
+
+Documentation
+-------------
+
+The documentation can be found
+[online](https://math.umons.ac.be/anum/software/csv/) or in
+[csv.mli](src/csv.mli).  Also see the [examples](examples/).
