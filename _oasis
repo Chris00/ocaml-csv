@@ -26,7 +26,7 @@ Library csv
   Path:       src
   BuildTools: ocamlbuild
   Modules:    Csv
-  InternalModules: Csv_std, Csv_utils, Csv_row
+  InternalModules: Csv_utils, Csv_row
   BuildDepends: bytes
 
 Library csv_lwt

@@ -48,7 +48,8 @@ let () =
        ";%lwt", ";";
        "return", "";
       ] in
-  write (Filename.concat "src" "csv_std.ml") csv_std;
+  let csv_mem = substitute (Filename.concat "src" "csv_memory.ml") [] in
+  write (Filename.concat "src" "csv.ml") (csv_std @ csv_mem);
   let csv_lwt =
     substitute pp
       [" +LWT_t", " Lwt.t";

@@ -1,4 +1,4 @@
-(* File: csv.ml
+(* File: csv_memory.ml
 
    Copyright (C) 2017-
 
@@ -15,8 +15,10 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file
    LICENSE for more details. *)
 
-include Csv_std
-
+(* REMARK: This file in copied into csv.ml — instead of being in
+   csv.ml and including the preprocessed version of csv.pp.ml — in
+   order for the exception [Failure] to be well qualified when printed
+   by the default exception handler. *)
 
 (*
  * Acting on CSV data in memory
