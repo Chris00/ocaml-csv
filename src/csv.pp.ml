@@ -19,7 +19,7 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file
    LICENSE for more details. *)
 
-(* MOTIVATION.  There are already several solutions to parse CSV files
+(* MOTIVATION.  There used to be several solutions to parse CSV files
    in OCaml.  They did not suit my needs however because:
 
    - The files I need to deal with have a header which does not always
