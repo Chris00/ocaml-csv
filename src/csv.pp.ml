@@ -137,6 +137,25 @@ let fill_in_buf_or_Eof ic =
   end
   IF_LWT(else Lwt.return(),)
 
+let rec add_if_satisfy ic predicate i =
+  if i >= ic.in1 then (
+    Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    ic.in0 <- i;
+    fill_in_buf_or_Eof ic;%lwt
+    add_if_satisfy ic predicate 0
+  )
+  else
+    let c = Bytes.unsafe_get ic.in_buf i in
+    if predicate c then
+      add_if_satisfy ic predicate (i + 1)
+    else (
+      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      ic.in0 <- i; (* at char [c]; [i < ic.in1]. *)
+      return()
+    )
+
+let rec add_spaces ic = add_if_satisfy ic ic.is_space ic.in0
+
 (* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
    not considered an error -- just do nothing. *)
 let skip_CR ic =
@@ -258,25 +277,6 @@ let add_quoted_field ic field_no =
            else raise(Failure(ic.record_n, field_no,
                               "Quoted field closed by end of file")))
 
-
-let rec add_if_satisfy ic predicate i =
-  if i >= ic.in1 then (
-    Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-    ic.in0 <- i;
-    fill_in_buf_or_Eof ic;%lwt
-    add_if_satisfy ic predicate 0
-  )
-  else
-    let c = Bytes.unsafe_get ic.in_buf i in
-    if predicate c then
-      add_if_satisfy ic predicate (i + 1)
-    else (
-      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
-      ic.in0 <- i; (* at char [c]; [i < ic.in1]. *)
-      return()
-    )
-
-let rec add_spaces ic = add_if_satisfy ic ic.is_space ic.in0
 
 (* We suppose to be at the beginning of a field.  Add the next field
    to [record].  @return [true] if more fields follow, [false] if the
