@@ -70,6 +70,7 @@ type out_channel
 
 val to_channel : ?separator:char ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 ?quote_all:bool ->
                  Lwt_io.output_channel -> out_channel
 (** See {!Csv.to_channel}. *)
 
@@ -83,10 +84,12 @@ val output_all : out_channel -> t -> unit Lwt.t
 (** See {!Csv.output_all}. *)
 
 val save : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+           ?quote_all:bool ->
            string -> t -> unit Lwt.t
 (** See {!Csv.save}. *)
 
 val print : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+            ?quote_all:bool ->
             t -> unit Lwt.t
 (** See {!Csv.print}. *)
 

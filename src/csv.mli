@@ -229,6 +229,7 @@ type out_channel
 
 val to_out_obj : ?separator:char ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 ?quote_all:bool ->
                  out_obj_channel -> out_channel
   (** [to_out_obj ?separator ?excel_tricks out_chan] creates a new "channel"
       to output the data in CSV form.
@@ -245,15 +246,20 @@ val to_out_obj : ?separator:char ->
       '\000' is represented as '"' followed by '0' and the fact that a
       field with leading or trailing spaces or a leading '0' will be
       encoded as ="..."  (to avoid Excel "helping" you).  Default:
-      [false].  *)
+      [false].
+
+      @param quote_all force all fields to be quoted, even if this
+      is not required by the CSV specification. *)
 
 val to_channel : ?separator:char ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 ?quote_all:bool ->
                  Pervasives.out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
 
 val to_buffer : ?separator:char ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                ?quote_all:bool ->
                 Buffer.t -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a buffer. *)
 
@@ -275,10 +281,12 @@ val save_out : ?separator:char ->
   (** @deprecated Save string list list to a channel. *)
 
 val save : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+           ?quote_all:bool ->
            string -> t -> unit
   (** [save fname csv] saves the [csv] data to the file [fname]. *)
 
 val print : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
+            ?quote_all:bool ->
             t -> unit
   (** Print the CSV data. *)
 

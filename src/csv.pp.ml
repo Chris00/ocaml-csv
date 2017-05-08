@@ -593,10 +593,11 @@ type out_channel = {
   out_separator_bytes : Bytes.t;
   out_backslash_escape : bool;
   out_excel_tricks : bool;
+  quote_all: bool;
 }
 
 let to_out_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=false)
-      out_chan =
+      ?(quote_all=false) out_chan =
   if separator = '\n' || separator = '\r' then
     invalid_arg "Csv (output): the separator cannot be '\\n' or '\\r'";
   {
@@ -605,21 +606,22 @@ let to_out_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=false)
     out_separator_bytes = Bytes.make 1 separator;
     out_backslash_escape = backslash_escape;
     out_excel_tricks = excel_tricks;
+    quote_all = quote_all;
   }
 
 
 IF_LWT(let to_channel = to_out_obj
 ,
-let to_channel ?separator ?backslash_escape ?excel_tricks fh =
-  to_out_obj ?separator ?backslash_escape ?excel_tricks
+let to_channel ?separator ?backslash_escape ?excel_tricks ?quote_all fh =
+  to_out_obj ?separator ?backslash_escape ?excel_tricks ?quote_all
     (object
        val fh = fh
        method output s ofs len = output fh s ofs len; len
        method close_out () = close_out fh
      end)
 
-let to_buffer ?separator ?backslash_escape ?excel_tricks buf =
-  to_out_obj ?separator ?backslash_escape ?excel_tricks
+let to_buffer ?separator ?backslash_escape ?excel_tricks ?quote_all buf =
+  to_out_obj ?separator ?backslash_escape ?excel_tricks ?quote_all
     (object
        method output s ofs len = Buffer.add_subbytes buf s ofs len; len
        method close_out () = ()
@@ -681,7 +683,7 @@ let write_escaped oc field =
     let len = String.length field in
     let use_excel_trick = oc.out_excel_tricks && need_excel_trick field len
     and n = must_quote oc field len in
-    if n < 0 && not use_excel_trick then
+    if n < 0 && not use_excel_trick && not oc.quote_all then
       (* [really_output] does not mutate the [Bytes.t] argument. *)
       really_output oc (Bytes.unsafe_of_string field) 0 len
     else (
@@ -714,6 +716,7 @@ let write_escaped oc field =
       output_quote oc
     )
   end
+  else if oc.quote_all then (output_quote oc;%lwt output_quote oc)
   else return()
 
 let output_record oc = function
@@ -733,9 +736,9 @@ let output_record oc = function
 let output_all oc t =
   IF_LWT(Lwt_list.iter_s, List.iter) (fun r -> output_record oc r) t
 
-let print ?separator ?backslash_escape ?excel_tricks t =
+let print ?separator ?backslash_escape ?excel_tricks ?quote_all t =
   let csv = to_channel ?separator ?backslash_escape
-              ?excel_tricks IF_LWT(Lwt_io.stdout, stdout) in
+              ?excel_tricks ?quote_all IF_LWT(Lwt_io.stdout, stdout) in
   output_all csv t;%lwt
   IF_LWT(Lwt_io.flush Lwt_io.stdout, flush stdout)
 
@@ -745,10 +748,11 @@ let save_out ?separator ?backslash_escape ?excel_tricks ch t =
   output_all csv t
 )
 
-let save ?separator ?backslash_escape ?excel_tricks fname t =
+let save ?separator ?backslash_escape ?excel_tricks ?quote_all fname t =
   let%lwt ch = (IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Output fname,
                        open_out fname)) in
-  let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
+  let csv = to_channel ?separator ?backslash_escape ?excel_tricks
+              ?quote_all ch in
   output_all csv t;%lwt
   IF_LWT(Lwt_io.close, Pervasives.close_out) ch
 
