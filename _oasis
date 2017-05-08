@@ -107,6 +107,20 @@ Test write
   Command: $test_write
   Run: true
 
+Executable test_fix
+  Build$:         flag(tests)
+  Path:           tests/
+  MainIs:         test_fix.ml
+  BuildDepends:   csv
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Test fix
+  WorkingDirectory: tests/
+  Command: $test_fix
+  Run: true
+
 
 SourceRepository master
   Type:       git

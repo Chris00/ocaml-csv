@@ -31,15 +31,17 @@ type in_channel
 val of_channel : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 ?fix:bool ->
                  Lwt_io.input_channel -> in_channel Lwt.t
 (** See {!Csv.of_in_obj}. *)
 
 val load : ?separator:char -> ?strip: bool ->
-           ?backslash_escape: bool -> ?excel_tricks:bool-> string -> t Lwt.t
+           ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
+           string -> t Lwt.t
 (** See {!Csv.load} *)
 
 val load_in : ?separator:char -> ?strip: bool ->
-              ?backslash_escape: bool -> ?excel_tricks:bool ->
+              ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
               Lwt_io.input_channel -> t Lwt.t
 (** See {!Csv.load_in}. *)
 

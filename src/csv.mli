@@ -85,6 +85,7 @@ type in_channel
 val of_in_obj : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                ?fix:bool ->
                 in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
@@ -116,11 +117,16 @@ val of_in_obj : ?separator:char -> ?strip: bool ->
     followed by '0' in a quoted string means ASCII NULL and the fact
     that a field of the form ="..." only returns the string inside the
     quotes.  Default: [true].
- *)
+
+    @param fix Parses the CSV data without raising the exception
+    [Csv.Failure].  If the data does not conform to the CSV format
+    (e.g. because of badly escaped quotes), try to repair it.
+    Default: [false].  *)
 
 val of_channel : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
+                 ?fix: bool ->
                  Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel. *)
@@ -128,12 +134,14 @@ val of_channel : ?separator:char -> ?strip: bool ->
 val of_string : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                ?fix: bool ->
                 string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
 val load : ?separator:char -> ?strip: bool ->
-           ?backslash_escape: bool -> ?excel_tricks:bool-> string -> t
+           ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
+           string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
 
@@ -149,10 +157,13 @@ val load : ?separator:char -> ?strip: bool ->
       @param excel_tricks enables Excel tricks, namely the fact that '"'
       followed by '0' in a quoted string means ASCII NULL and the fact
       that a field of the form ="..." only returns the string inside the
-      quotes.  Default: [true].  *)
+      quotes.  Default: [true].
+
+      @param fix Fix invalid CSV in order to parse it without raising
+      [Csv.Failure].  See {!of_in_obj}. *)
 
 val load_in : ?separator:char -> ?strip: bool ->
-              ?backslash_escape: bool -> ?excel_tricks:bool ->
+              ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix: bool ->
               Pervasives.in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
       See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
@@ -176,7 +187,7 @@ val next : in_channel -> string list
       @raise End_of_file if no more record can be read.
 
       @raise Csv.Failure if the CSV format is not respected.  The
-      partial record read is available with [#current_record]. *)
+      partial record read is available with {!Csv.current_record}. *)
 
 val fold_left : f:('a -> string list -> 'a) -> init:'a -> in_channel -> 'a
   (** [fold_left f a ic] computes (f ... (f (f a r0) r1) ... rN)
@@ -206,6 +217,7 @@ val current_record : in_channel -> string list
 
 val load_rows : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
+                ?fix: bool ->
                 (string list -> unit) -> Pervasives.in_channel -> unit
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
       {!Csv.of_channel}. *)
@@ -341,6 +353,7 @@ module Rows : sig
   val load : ?separator:char -> ?strip: bool ->
              ?has_header: bool -> ?header: string list ->
              ?backslash_escape: bool -> ?excel_tricks:bool ->
+             ?fix: bool ->
              string -> Row.t list
   (** See {!Csv.load}. *)
 

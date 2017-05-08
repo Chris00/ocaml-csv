@@ -102,6 +102,7 @@ type in_channel = {
   separator : char;
   backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
+  fix: bool;
   (* Whitespace related stripping functions: *)
   is_space : char -> bool;
   lstrip_buffer : Buffer.t -> unit;
@@ -137,6 +138,8 @@ let fill_in_buf_or_Eof ic =
   end
   IF_LWT(else Lwt.return(),)
 
+(* Add chars to [ic.current_field] from [ic.in_buf.[i]] as long as they
+   satisfy [predicate].  *)
 let rec add_if_satisfy ic predicate i =
   if i >= ic.in1 then (
     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
@@ -154,16 +157,24 @@ let rec add_if_satisfy ic predicate i =
       return()
     )
 
-let rec add_spaces ic = add_if_satisfy ic ic.is_space ic.in0
+let add_spaces ic = add_if_satisfy ic ic.is_space ic.in0
 
-(* Skip the possible '\n' following a '\r'.  Reaching End_of_file is
-   not considered an error -- just do nothing. *)
-let skip_CR ic =
-  TRY_WITH(fill_in_buf_or_Eof ic;%lwt
-           if Bytes.unsafe_get ic.in_buf ic.in0 = '\n' then
-             ic.in0 <- ic.in0 + 1;
-           return()
-           , End_of_file -> return())
+(* Assume that the current position [ic.in0] is just after the end of
+   a field.  Determine if a subsequent field follows or a new record
+   must be started.  Place the current position at the beginning of
+   the next field. *)
+let has_next_field ic =
+  assert(ic.in0 < ic.in1);
+  let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+  ic.in0 <- ic.in0 + 1;
+  if c = '\r' then (
+    (* Skip a possible CR *)
+    TRY_WITH(fill_in_buf_or_Eof ic;%lwt
+             if Bytes.unsafe_get ic.in_buf ic.in0 = '\n' then
+               ic.in0 <- ic.in0 + 1;
+             return(false)
+           , End_of_file -> return(false)))
+  else return(c = ic.separator)
 
 
 (* Unquoted field.  Read till a delimiter, a newline, or the
@@ -189,9 +200,8 @@ let rec seek_unquoted_separator ic i =
         Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
         ic.record <- ic.rstrip_contents ic.current_field :: ic.record
       );
-      ic.in0 <- i + 1;
-      if c = '\r' then (skip_CR ic;%lwt return(false))
-      else return(c = ic.separator)
+      ic.in0 <- i;
+      has_next_field ic
     )
     else seek_unquoted_separator ic (i+1)
 
@@ -201,57 +211,84 @@ let add_unquoted_field ic =
            ic.record <- ic.rstrip_contents ic.current_field :: ic.record;
            return(false))
 
-(* Quoted field closed.  Read past a separator or a newline and decode
-   the field or raise [End_of_file].  @return [true] if more fields
-   follow, [false] if the record is complete. *)
-let rec seek_quoted_separator ic field_no =
-  fill_in_buf_or_Eof ic;%lwt
-  let c = Bytes.unsafe_get ic.in_buf ic.in0 in
-  ic.in0 <- ic.in0 + 1;
-  if c = ic.separator || c = '\n' || c = '\r' then (
-    ic.record <- Buffer.contents ic.current_field :: ic.record;
-    if c = '\r' then (skip_CR ic;%lwt return(false))
-    else return(c = ic.separator)
-  )
-  else if is_space_or_tab c then
-    seek_quoted_separator ic field_no (* skip space *)
-  else raise(Failure(ic.record_n, field_no,
-                     "Non-space char after closing the quoted field"))
 
-let rec examine_quoted_field ic field_no after_quote i =
+let rec examine_quoted_field ic field_no after_final_quote
+          ~after_bad_quote i =
   if i >= ic.in1 then (
     (* End of field not found, need to look at the next chunk *)
-    Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
     ic.in0 <- i;
     fill_in_buf_or_Eof ic;%lwt
-    examine_quoted_field ic field_no after_quote 0
+    examine_quoted_field ic field_no after_final_quote ~after_bad_quote 0
   )
   else
     let c = Bytes.unsafe_get ic.in_buf i in
     if c = '\"' then (
-      after_quote := true;
+      after_final_quote := true;
       (* Save the field so far, without the quote *)
       Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
       ic.in0 <- i + 1; (* skip the quote *)
       (* The field up to [ic.in0] is saved, can refill if needed. *)
       fill_in_buf_or_Eof ic;%lwt (* possibly update [ic.in0] *)
       let c = Bytes.unsafe_get ic.in_buf ic.in0 in
-      if c = '\"' then (
-        after_quote := false;
-        (* [c] is kept so a quote will be included in the field *)
-        examine_quoted_field ic field_no after_quote (ic.in0 + 1)
+      if c = ic.separator || c = '\n' || c = '\r' then (
+        ic.record <- Buffer.contents ic.current_field :: ic.record;
+        has_next_field ic
       )
-      else if c = ic.separator || is_space_or_tab c
-              || c = '\n' || c = '\r' then (
-        seek_quoted_separator ic field_no (* field already saved;
-                                             after_quote=true *)
+      else if c = '\"' then (
+        (* Either a correctly escaped quote or the closing of a badly
+           escaped one and the closing of the field.  In both cases,
+           the field has a quote. *)
+        Buffer.add_char ic.current_field '\"';
+        ic.in0 <- ic.in0 + 1;
+        let len_field = Buffer.length ic.current_field in
+        add_spaces ic;%lwt  (* [ic.in0 < ic.in1] or EOF *)
+        let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+        if after_bad_quote (* ⇒ [ic.fix] *)
+           && (c = ic.separator || c = '\n' || c = '\r') then (
+          (* space + separator, consider it closes the field. *)
+          ic.record <- Buffer.sub ic.current_field 0 len_field :: ic.record;
+          has_next_field ic
+          )
+        else (
+          (* Not [after_bad_quote] (e.g. if [ic.fix] is false) or does
+             not look like the end of a field ⇒ escaped quote (already
+             added). *)
+          after_final_quote := false;
+          (* [c] is kept so a quote will be included in the field *)
+          examine_quoted_field ic field_no after_final_quote
+            ~after_bad_quote ic.in0
+        )
       )
       else if ic.excel_tricks && c = '0' then (
         (* Supposedly, '"' '0' means ASCII NULL *)
-        after_quote := false;
+        after_final_quote := false;
         Buffer.add_char ic.current_field '\000';
         ic.in0 <- ic.in0 + 1; (* skip the '0' *)
-        examine_quoted_field ic field_no after_quote ic.in0
+        examine_quoted_field ic field_no after_final_quote
+          ~after_bad_quote ic.in0
+      )
+      else if ic.is_space c || ic.fix then (
+        (* Either a final quote or a badly escaped one.  Keep the
+           length of the field if it is complete (the normal case) and
+           add more to the buffer in case it must be kept. *)
+        let len_field = Buffer.length ic.current_field in
+        Buffer.add_char ic.current_field '\"';
+        add_spaces ic;%lwt  (* [ic.in0 < ic.in1] or EOF *)
+        let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+        if c = ic.separator || c = '\n' || c = '\r' then (
+          (* Normal field termination ⇒ save field; after_final_quote=true *)
+          ic.record <- Buffer.sub ic.current_field 0 len_field :: ic.record;
+          has_next_field ic
+        )
+        else if ic.fix then (
+          (* Badly escaped quote, [ic.current_field] to be continued *)
+          after_final_quote := false;
+          examine_quoted_field ic field_no after_final_quote
+            ~after_bad_quote:(not after_bad_quote) ic.in0
+        )
+        else raise(Failure(ic.record_n, field_no,
+                     "Non-space char after closing the quoted field"))
       )
       else raise(Failure(ic.record_n, field_no, "Bad '\"' in quoted field"))
     )
@@ -263,17 +300,21 @@ let rec examine_quoted_field ic field_no after_quote i =
       let c = Bytes.unsafe_get ic.in_buf ic.in0 in
       Buffer.add_char ic.current_field unescape.(Char.code c);
       ic.in0 <- ic.in0 + 1; (* skip the char [c]. *)
-      examine_quoted_field ic field_no after_quote ic.in0
+      examine_quoted_field ic field_no after_final_quote
+        ~after_bad_quote ic.in0
     )
-    else examine_quoted_field ic field_no after_quote (i+1)
+    else examine_quoted_field ic field_no after_final_quote
+           ~after_bad_quote (i+1)
 
 let add_quoted_field ic field_no =
-  let after_quote = ref false in (* preserved through exn *)
-  TRY_WITH(examine_quoted_field ic field_no after_quote ic.in0
+  let after_final_quote = ref false in (* preserved through exn *)
+  TRY_WITH(examine_quoted_field ic field_no after_final_quote
+             ~after_bad_quote:false ic.in0
          , End_of_file ->
            (* Add the field even if not closed well *)
            ic.record <- Buffer.contents ic.current_field :: ic.record;
-           if !after_quote then return(false) (* = record is complete *)
+           if !after_final_quote || ic.fix then
+             return(false) (* = record is complete *)
            else raise(Failure(ic.record_n, field_no,
                               "Quoted field closed by end of file")))
 
@@ -393,7 +434,7 @@ let fold_right ~f ic a0 =
  *)
 
 let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
-              ?(backslash_escape=false) ?(excel_tricks=true)
+              ?(backslash_escape=false) ?(excel_tricks=true) ?(fix=false)
               in_chan =
   if separator = '\n' || separator = '\r' then
     invalid_arg "Csv (input): the separator cannot be '\\n' or '\\r'";
@@ -411,6 +452,7 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
       separator = separator;
       backslash_escape;
       excel_tricks = excel_tricks;
+      fix = fix;
       (* Stripping *)
       is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
       lstrip_buffer = (if strip then Buffer.clear else do_nothing);
@@ -438,9 +480,9 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
 
 IF_LWT(let of_channel = of_in_obj,
 let of_channel ?separator ?strip ?has_header ?header
-               ?backslash_escape ?excel_tricks fh =
+               ?backslash_escape ?excel_tricks ?fix fh =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks
+            ?backslash_escape ?excel_tricks ?fix
     (object
        val fh = fh
        method input s ofs len =
@@ -453,9 +495,9 @@ let of_channel ?separator ?strip ?has_header ?header
      end)
 
 let of_string ?separator ?strip ?has_header ?header
-              ?backslash_escape ?excel_tricks str =
+              ?backslash_escape ?excel_tricks ?fix str =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks
+            ?backslash_escape ?excel_tricks ?fix
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -499,25 +541,26 @@ object
 end
 )
 
-let load ?separator ?strip ?backslash_escape ?excel_tricks fname =
+let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix fname =
   let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                 else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                             open_in fname)) in
   let%lwt csv = (of_channel ?separator ?strip ?backslash_escape
-                   ?excel_tricks fh) in
+                   ?excel_tricks ?fix fh) in
   let%lwt t = (input_all csv) in
   close_in csv;%lwt
   return(t)
 
-let load_in ?separator ?strip ?backslash_escape ?excel_tricks ch =
+let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ch =
   let%lwt fh = (of_channel ?separator ?strip ?backslash_escape
-                  ?excel_tricks ch) in
+                  ?excel_tricks ?fix ch) in
   input_all fh
 
 IF_LWT(,
 (* @deprecated *)
-let load_rows ?separator ?strip ?backslash_escape ?excel_tricks f ch =
-  iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks ch)
+let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix f ch =
+  iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks
+             ?fix ch)
 )
 
 (*
@@ -764,12 +807,12 @@ module Rows = struct
     IF_LWT(Lwt_list.fold_left_s,List.fold_left) (fun a r -> f r a) a0 lr
 
   let load ?separator ?strip ?has_header ?header
-           ?backslash_escape ?excel_tricks fname =
+           ?backslash_escape ?excel_tricks ?fix fname =
     let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                   else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                               open_in fname)) in
     let%lwt csv = (of_channel ?separator ?strip ?has_header ?header
-                     ?backslash_escape ?excel_tricks fh) in
+                     ?backslash_escape ?excel_tricks ?fix fh) in
     let%lwt t = (input_all csv) in
     close_in csv;%lwt
     return(t)
