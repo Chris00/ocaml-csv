@@ -222,7 +222,7 @@ let rec combine ~header row = match header, row with
   | h0 :: h, x :: r -> (h0, x) :: combine ~header:h r
 
 let associate header data =
-  List.map (fun row -> combine header row) data
+  List.map (fun row -> combine ~header row) data
 
 let map ~f csv =
   List.map (fun row -> List.map (fun el -> f el) row) csv
