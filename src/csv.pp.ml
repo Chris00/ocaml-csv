@@ -395,6 +395,8 @@ let fold_right ~f ic a0 =
 let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
               ?(backslash_escape=false) ?(excel_tricks=true)
               in_chan =
+  if separator = '\n' || separator = '\r' then
+    invalid_arg "Csv (input): the separator cannot be '\\n' or '\\r'";
   let ic = {
       in_chan = in_chan;
       in_buf = Bytes.create buffer_len;
@@ -551,13 +553,16 @@ type out_channel = {
 }
 
 let to_out_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=false)
-               out_chan = {
-  out_chan = out_chan;
-  out_separator = separator;
-  out_separator_bytes = Bytes.make 1 separator;
-  out_backslash_escape = backslash_escape;
-  out_excel_tricks = excel_tricks;
-}
+      out_chan =
+  if separator = '\n' || separator = '\r' then
+    invalid_arg "Csv (output): the separator cannot be '\\n' or '\\r'";
+  {
+    out_chan = out_chan;
+    out_separator = separator;
+    out_separator_bytes = Bytes.make 1 separator;
+    out_backslash_escape = backslash_escape;
+    out_excel_tricks = excel_tricks;
+  }
 
 
 IF_LWT(let to_channel = to_out_obj
