@@ -97,8 +97,9 @@ type in_channel = {
   mutable record : string list; (* The current record *)
   mutable record_n : int; (* For error messages *)
   has_header : bool;
-  header : Header.t; (* Convert the rows on demand (=> do not pay the price
-                        if one does not use that feature). *)
+  mutable header : Header.t; (* Convert the rows on demand (=> do not
+                                pay the price if one does not use that
+                                feature). *)
   separator : char;
   backslash_escape : bool; (* Whether \x is considered as an escape *)
   excel_tricks : bool;
@@ -762,6 +763,10 @@ let save ?separator ?backslash_escape ?excel_tricks ?quote_all fname t =
 
 module Rows = struct
   let header ic = Header.names ic.header
+
+  let set_header ?(replace=false) ic names =
+    let h0 = Header.of_names names in
+    ic.header <- if replace then h0 else Header.merge ~main:h0 ic.header
 
   let current ic = Row.make ic.header ic.record
 

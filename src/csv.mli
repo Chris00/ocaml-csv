@@ -341,6 +341,17 @@ module Rows : sig
   val header : in_channel -> string list
   (** The header declared for this channel.  *)
 
+  val set_header : ?replace: bool -> in_channel -> string list -> unit
+  (** [set_header ic headers] set the new header for all {i
+     subsequent} reads on [ic] (previously read {!Row.t} values are
+     unaffected).  This is useful for example to compose an unusual
+     header after reading several lines of the CSV data.
+
+     @param replace When [false] (the default), if an entry in
+     [headers] is [""], the previous name (if any) is kept (see the
+     [header] parameter of {!of_in_obj}).  When [true], an entry [""]
+     means there is no access by name for that column. *)
+
   val next : in_channel -> Row.t
   (** See {!Csv.next}.  If no header was declared for the channel,
       this function will work but only access using {!Row.get} will

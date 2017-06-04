@@ -103,6 +103,9 @@ module Rows : sig
   val header : in_channel -> string list
   (** The header declared for this channel.  *)
 
+  val set_header : ?replace: bool -> in_channel -> string list -> unit
+  (** See {!Csv.Rows.set_header}. *)
+
   val next : in_channel -> Row.t Lwt.t
   (** See {!Csv.Rows.next}. *)
 
