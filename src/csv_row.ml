@@ -70,8 +70,8 @@ module Header = struct
           index := M.add names.(i) i !index
         )
       done;
-      for i = Array.length names to Array.length names - 1 do
-        if t.names.(i) <> "" then (
+      for i = Array.length main.names to Array.length names - 1 do
+        if t.names.(i) <> "" && not(M.mem t.names.(i) !index) then (
           names.(i) <- t.names.(i);
           index := M.add names.(i) i !index
         )
