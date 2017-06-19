@@ -44,6 +44,9 @@ dist tar: setup.ml opam
 	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
 	$(RM) -rf $(PKGNAME)-$(PKGVERSION)
 
+upload-tar: tar
+	scp -C -p -r $(PKG_TARBALL) $(WEB)
+
 web: doc
 	$(MAKE) -C doc $@
 
