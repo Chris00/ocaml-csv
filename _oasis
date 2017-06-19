@@ -31,10 +31,10 @@ Library csv
 
 Library csv_lwt
   Build$:     flag(lwt)
-  Path:       src
+  Path:       src/lwt
   BuildTools: ocamlbuild
   Modules:    Csv_lwt
-  InternalModules: Csv_utils, Csv_row
+#  InternalModules: Csv_utils, Csv_row
   BuildDepends: lwt, bytes, csv
   FindlibName:   lwt
   FindlibParent: csv

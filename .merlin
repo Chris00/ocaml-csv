@@ -1,7 +1,9 @@
 S src
+S src/lwt
 S tests
 S examples
 B _build/src
+B _build/src/lwt
 B _build/tests
 B _build/examples
 PKG lwt
