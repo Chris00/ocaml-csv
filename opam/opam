@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "csv"
-version: "1.6"
+version: "1.7"
 maintainer: "Christophe Troestler <Christophe.Troestler@umons.ac.be>"
 authors: [ "Richard Jones"
            "Christophe Troestler" ]
