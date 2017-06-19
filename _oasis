@@ -121,6 +121,20 @@ Test fix
   Command: $test_fix
   Run: true
 
+Executable test_lwt
+  Build$:         flag(tests) && flag(lwt)
+  Path:           tests/
+  MainIs:         test_lwt.ml
+  BuildDepends:   csv.lwt, lwt.unix
+  CompiledObject: best
+  BuildTools:     ocamlbuild
+  Install:        false
+
+Test lwt
+  WorkingDirectory: tests/
+  Command: $test_lwt
+  Run: true
+
 
 SourceRepository master
   Type:       git

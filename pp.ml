@@ -3,6 +3,8 @@
 #load "str.cma";;
 #load "unix.cma";;
 
+let ( / ) = Filename.concat
+
 let read_all fname =
   (* Avoid Bytes for backward compatibility. *)
   let fh = open_in fname in
@@ -33,33 +35,37 @@ let balanced_braces4 =
   let e = ")\\)*" in
   String.concat "" ["\\([^(),]\\|("; b; b; b; "[^()]*"; e; e; e; e]
 
+let sub_std = [
+    " +LWT_t", "";
+    ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "(* \\1 *)\\6");
+    ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "try \\1 with \\6");
+    (* Payload surrounded by braces to avoid absorbing "in" in \2 *)
+    ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
+     "let \\1 = \\2 in");
+    ";%lwt", ";";
+    "return\\b", "";
+  ]
+
+let sub_lwt = [
+    " +LWT_t", " Lwt.t";
+    ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     " \\1(* \\6 *)");
+    ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "Lwt.catch (fun () -> \\1) (function \\6 | exn -> Lwt.fail exn)");
+    ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
+     "(\\2) >>= fun \\1 -> ");
+    ";%lwt", " >>= fun () -> ";
+    "raise", "Lwt.fail";
+  ]
+
 let () =
-  let pp = Filename.concat "src" "csv.pp.ml" in
-  let csv_std =
-    substitute pp
-      [" +LWT_t", "";
-       ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
-        "(* \\1 *)\\6");
-       ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
-        "try \\1 with \\6");
-       (* Payload surrounded by braces to avoid absorbing "in" in \2 *)
-       ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
-        "let \\1 = \\2 in");
-       ";%lwt", ";";
-       "return", "";
-      ] in
-  let csv_mem = substitute (Filename.concat "src" "csv_memory.ml") [] in
-  write (Filename.concat "src" "csv.ml") (csv_std @ csv_mem);
-  let csv_lwt =
-    substitute pp
-      [" +LWT_t", " Lwt.t";
-       ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
-        " \\1(* \\6 *)");
-       ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
-        "Lwt.catch (fun () -> \\1) (function \\6 | exn -> Lwt.fail exn)");
-       ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
-        "(\\2) >>= fun \\1 -> ");
-       ";%lwt", " >>= fun () -> ";
-       "raise", "Lwt.fail";
-      ] in
-  write (Filename.concat "src" "csv_lwt.ml") csv_lwt
+  let pp = "src" / "csv.pp.ml" in
+  let csv_std = substitute pp sub_std in
+  let csv_mem = substitute ("src" / "csv_memory.ml") [] in
+  write ("src" / "csv.ml") (csv_std @ csv_mem);
+  write ("src" / "lwt" / "csv_lwt.ml") (substitute pp sub_lwt);
+  let test = "tests" / "test.pp.ml" in
+  write ("tests" / "test.ml") (substitute test sub_std);
+  write ("tests" / "test_lwt.ml") (substitute test sub_lwt)

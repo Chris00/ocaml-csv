@@ -1,77 +1,73 @@
 open Printf
+IF_LWT(open Lwt  open Lwt_io,)
+
+module C = IF_LWT(Csv_lwt, Csv)
 
 let do_testcsv ?separator ?strip ?backslash_escape filename expected =
-  try
-    let csv = Csv.load ?separator ?strip ?backslash_escape filename in
+  TRY_WITH(
+    let%lwt csv = (C.load ?separator ?strip ?backslash_escape filename) in
     if csv <> expected then (
-      printf "input file: %s\n" filename;
-      printf "Csv library produced:\n";
-      Csv.print csv;
-      printf "Expected:\n";
-      Csv.print expected;
-      failwith "failed"
+      printf "input file: %s\n" filename;%lwt
+      printf "Csv library produced:\n";%lwt
+      C.print csv;%lwt
+      printf "Expected:\n";%lwt
+      C.print expected;%lwt
+      raise(Failure "failed")
     )
-  with Csv.Failure(nrow, nfield, err) ->
-    printf "The file %S line %i, field %i, does not conform to the CSV \
-      specifications: %s\n" filename nrow nfield err;
-    failwith "failed"
+    else return()
+  , Csv.Failure(nrow, nfield, err) ->
+    (printf "The file %S line %i, field %i, does not conform to the CSV \
+      specifications: %s\n" filename nrow nfield err;%lwt
+    raise(Failure "failed")))
 
 
-
-let () =
+let main () =
   do_testcsv
     "testcsv1.csv"
-    [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns." ] ]
-let () =
+    [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns." ] ];%lwt
   do_testcsv
     "testcsv2.csv"
-    [ [ "Normal field"; "Quoted field"; "Quoted field with \"\" quotes" ] ]
-let () =
+    [ [ "Normal field"; "Quoted field"; "Quoted field with \"\" quotes" ] ];%lwt
   do_testcsv
     "testcsv3.csv"
     [ [ "" ];
       [ ""; "" ];
       [ ""; ""; "" ];
       [ ""; ""; ""; "" ];
-      [ ""; ""; ""; ""; "" ] ]
-let () =
+      [ ""; ""; ""; ""; "" ] ];%lwt
   do_testcsv
     "testcsv4.csv"
-    []
-let () =
+    [];%lwt
   do_testcsv
     "testcsv5.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns.";
         "a second field"; "a third field" ];
-      [ "a fourth field on a new line" ] ]
-let () =
+      [ "a fourth field on a new line" ] ];%lwt
   do_testcsv
     "testcsv6.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns\nand \000";
         "a second field"; "a third field" ];
-      [ "a fourth field on a new line" ] ]
+      [ "a fourth field on a new line" ] ];%lwt
 
-let () =
   do_testcsv
     "testcsv7.csv"
     [ [ "Initial"; "and"; "final"; ""; "spaces"; "do not matter" ];
-      [ " Quoted spaces "; "are"; " important " ] ]
+      [ " Quoted spaces "; "are"; " important " ] ];%lwt
 
-let () =
   do_testcsv
     "testcsv7.csv" ~strip:false
     [ [ " Initial "; " and "; " final"; " "; "\tspaces   "; " do not matter " ];
-      [ " Quoted spaces "; " are"; " important " ] ]
+      [ " Quoted spaces "; " are"; " important " ] ];%lwt
 
-
-let () =
   do_testcsv ~separator:'\t'
     "testcsv8.csv"
-    [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]]
+    [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]];%lwt
 
-let () =
   do_testcsv "testcsv10.csv" ~backslash_escape:true
              [["a"; "b\"c"; "d\\d\000"]]
+
+let () =
+  IF_LWT(Lwt_main.run,)(main())
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
@@ -106,4 +102,5 @@ let () =
 
 
 let () =
-  print_endline "All conformity tests succeeded."
+  print_endline IF_LWT("All conformity tests succeeded (Csv_lwt).",
+                       "All conformity tests succeeded (Csv).")

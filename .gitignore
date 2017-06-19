@@ -27,5 +27,7 @@ src/csv.mllib
 API.docdir
 src/csv.ml
 src/lwt/csv_lwt.ml
+tests/test.ml
+tests/test_lwt.ml
 # Tarball
 *.tar.gz
