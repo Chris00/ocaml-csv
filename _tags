@@ -1,4 +1,61 @@
 # OASIS_START
+# DO NOT EDIT (digest: fa97cb5c66f1a6bc6c6b294d8104d75f)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library csv
+"src/csv.cmxs": use_csv
+<src/*.ml{,i,y}>: package(bytes)
+# Library csv_lwt
+"src/lwt/csv_lwt.cmxs": use_csv_lwt
+<src/lwt/*.ml{,i,y}>: package(bytes)
+<src/lwt/*.ml{,i,y}>: package(lwt)
+<src/lwt/*.ml{,i,y}>: package(lwt.unix)
+<src/lwt/*.ml{,i,y}>: use_csv
+# Executable csvtool
+<examples/csvtool.{native,byte}>: package(bytes)
+<examples/csvtool.{native,byte}>: package(unix)
+<examples/csvtool.{native,byte}>: use_csv
+<examples/*.ml{,i,y}>: package(unix)
+# Executable example
+<examples/example.{native,byte}>: package(bytes)
+<examples/example.{native,byte}>: use_csv
+<examples/*.ml{,i,y}>: package(bytes)
+<examples/*.ml{,i,y}>: use_csv
+# Executable test
+<tests/test.{native,byte}>: package(bytes)
+<tests/test.{native,byte}>: use_csv
+# Executable test_header
+<tests/test_header.{native,byte}>: package(bytes)
+<tests/test_header.{native,byte}>: use_csv
+# Executable test_write
+<tests/test_write.{native,byte}>: package(bytes)
+<tests/test_write.{native,byte}>: use_csv
+# Executable test_fix
+<tests/test_fix.{native,byte}>: package(bytes)
+<tests/test_fix.{native,byte}>: use_csv
+# Executable test_lwt
+<tests/test_lwt.{native,byte}>: package(bytes)
+<tests/test_lwt.{native,byte}>: package(lwt)
+<tests/test_lwt.{native,byte}>: package(lwt.unix)
+<tests/test_lwt.{native,byte}>: use_csv
+<tests/test_lwt.{native,byte}>: use_csv_lwt
+<tests/*.ml{,i,y}>: package(bytes)
+<tests/*.ml{,i,y}>: package(lwt)
+<tests/*.ml{,i,y}>: package(lwt.unix)
+<tests/*.ml{,i,y}>: use_csv
+<tests/*.ml{,i,y}>: use_csv_lwt
 # OASIS_STOP
 
 true: annot, safe_string

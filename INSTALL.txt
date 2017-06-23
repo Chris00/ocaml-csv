@@ -1,16 +1,20 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: aeed0b6f112359d79bc311b45f9c68e2) *)
+(* DO NOT EDIT (digest: 2bb15a412fdfea27826f8a0baabfde4a) *)
+
 This is the INSTALL file for the csv distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
-full information. 
+full information.
 
 Dependencies
 ============
 
 In order to compile this package, you will need:
-* ocaml for all, doc API
+
+* ocaml (>= 4.00.1) for all, doc API
 * findlib
+* bytes for library csv, library csv_lwt
+* lwt for library csv_lwt, executable test_lwt
 
 Installing
 ==========
@@ -23,7 +27,7 @@ Installing
 Uninstalling
 ============
 
-1. Go to the root of the package 
+1. Go to the root of the package
 2. Run 'ocaml setup.ml -uninstall'
 
 OASIS
