@@ -35,7 +35,7 @@ Library csv_lwt
   BuildTools: ocamlbuild
   Modules:    Csv_lwt
 #  InternalModules: Csv_utils, Csv_row
-  BuildDepends: lwt, bytes, csv
+  BuildDepends: lwt, lwt.unix, bytes, csv
   FindlibName:   lwt
   FindlibParent: csv
 
