@@ -62,6 +62,8 @@ val fold_right : f:(string list -> 'a -> 'a Lwt.t) -> in_channel -> 'a -> 'a Lwt
 val iter : f:(string list -> unit Lwt.t) -> in_channel -> unit Lwt.t
 (** See {!Csv.inter}. *)
 
+val current_record : in_channel -> string list
+(** See {!Csv.current_record}. *)
 
 
 (** {2 Output} *)
@@ -121,6 +123,13 @@ module Rows : sig
 
   val input_all : in_channel -> Row.t list Lwt.t
   (** See {!Csv.input_all}. *)
+
+  val load : ?separator:char -> ?strip: bool ->
+             ?has_header: bool -> ?header: string list ->
+             ?backslash_escape: bool -> ?excel_tricks:bool ->
+             ?fix: bool ->
+             string -> Row.t list Lwt.t
+  (** See {!Csv.load}. *)
 
   val current : in_channel -> Row.t
   (** See {!Csv.current_record}. *)
