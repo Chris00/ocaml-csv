@@ -26,5 +26,12 @@ csvtool: build
 	jbuilder exec csvtool pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
+publish:
+	topkg distrib
+	topkg publish distrib
+	topkg opam pkg -n csv
+	topkg opam pkg -n csv-lwt
+	CONDUIT_TLS=native topkg opam submit -n csv
+	CONDUIT_TLS=native topkg opam submit -n csv-lwt
 
-.PHONY: build tests install uninstall doc upload-doc clean csvtool
+.PHONY: build tests install uninstall doc upload-doc clean csvtool publish
