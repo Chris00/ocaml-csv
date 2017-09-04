@@ -6,7 +6,7 @@
   (synopsis "A pure OCaml library to read and write CSV files (LWT version).")
   (modules    (Csv_lwt Csv_utils))
   (flags      (:standard -safe-string))
-  (libraries  (bytes lwt csv))))
+  (libraries  (bytes lwt lwt.unix csv))))
 
 (rule
  ((targets (csv_lwt.ml))
