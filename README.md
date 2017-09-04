@@ -12,20 +12,24 @@ well as some convenience functions to manipulate such data.
 Compile & install
 -----------------
 
-The easiest way to install this library is to use
-[OPAM](http://opam.ocaml.org/):
+The easiest way to install this library is to use [OPAM][]:
 
     opam install csv
 
-If you prefer to compile by hand, run
+for the standard version and
 
-    ocaml setup.ml -configure
-    ocaml setup.ml -build
-    ocaml setup.ml -install
+    opam install csv-lwt
 
-Note that this package uses [oasis](https://github.com/ocaml/oasis) to
-generate its configure, build and install scripts.  However, you only
-need `oasis` if you want to compile the development version.
+for the LWT one.  If you prefer to compile and install by hand,
+make sure you have [jbuilder][] and run
+
+    jbuilder build @install
+    jbuilder install csv
+    jbuilder install csv-lwt
+
+[OPAM]: https://opam.ocaml.org/
+[jbuilder]: https://github.com/janestreet/jbuilder
+
 
 Uninstall
 ---------
@@ -33,14 +37,19 @@ Uninstall
 With OPAM:
 
     opam remove csv
+    opam remove csv-lwt
 
 Manually (from the source directory):
 
-    ocaml setup.ml -uninstall
+    jbuilder uninstall csv
+    jbuilder uninstall csv-lwt
 
 Documentation
 -------------
 
-The documentation can be found
-[online](https://math.umons.ac.be/anum/software/csv/) or in
-[csv.mli](src/csv.mli).  Also see the [examples](examples/).
+The documentation for the `Csv` (resp. `Csv_lwt`) module can be
+found [online](https://math.umons.ac.be/anum/software/csv/) 
+(resp. [here](https://math.umons.ac.be/anum/software/csv-lwt/)) or in
+[csv.mli](src/csv.mli) (resp. [csv_lwt.mli](csv-lwt/csv_lwt.mli)).
+
+Also see the [examples](examples/).
