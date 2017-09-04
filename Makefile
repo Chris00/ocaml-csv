@@ -18,8 +18,9 @@ doc: build
 	echo '.def { background: #f0f0f0; }' >> _build/default/_doc/odoc.css
 
 upload-doc: doc
-	scp -C -p -r _build/default/_doc/csv/ $(WEB)/
-	scp -C -p -r _build/default/_doc/csv-lwt/ $(WEB)/
+	scp -C -p -r _build/default/_doc/csv/ $(WEB)
+	scp -C -p -r _build/default/_doc/csv-lwt/ $(WEB)
+	scp -C -p _build/default/_doc/odoc.css $(WEB)
 
 csvtool: build
 	jbuilder exec csvtool pastecol 1-3 2,1,2 \
