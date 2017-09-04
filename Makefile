@@ -26,12 +26,15 @@ csvtool: build
 	jbuilder exec csvtool pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
-publish:
+submit:
 	topkg distrib
 	topkg publish distrib
 	topkg opam pkg -n csv
 	topkg opam pkg -n csv-lwt
+# 	Perform the subtitution that topkkg does not:
+	sed -e 's/\(^ *"csv"\) */\1 {= "$(PKGVERSION)"}/' --in-place \
+	  _build/csv-lwt.$(PKGVERSION)/opam
 	CONDUIT_TLS=native topkg opam submit -n csv
 	CONDUIT_TLS=native topkg opam submit -n csv-lwt
 
-.PHONY: build tests install uninstall doc upload-doc clean csvtool publish
+.PHONY: build tests install uninstall doc upload-doc clean csvtool submit
