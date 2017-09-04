@@ -26,6 +26,7 @@
     {{:https://tools.ietf.org/html/rfc4180} RFC4180} if one sets
     [strip=false] in the creation functions.
 
+    @version %%VERSION%%
     @author Richard Jones <rjones\@redhat.com>
     @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
  *)

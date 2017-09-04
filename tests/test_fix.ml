@@ -20,6 +20,7 @@ let test lineno csv_string expected =
   )
 
 let () =
+  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));
   test __LINE__ {|""a""|} [["\"a\""]];
   test __LINE__ {|""a""b|} [["\"a\"b"]];
   test __LINE__ {|""a"""b|} [["\"a\"\"b"]];

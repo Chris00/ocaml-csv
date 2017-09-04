@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(library
+ ((name        csv)
+  (public_name csv)
+  (synopsis "A pure OCaml library to read and write CSV files.")
+  (modules    (Csv Csv_utils Csv_row))
+  (flags      (:standard -safe-string))
+  (libraries (bytes))))
+
+(rule
+ ((targets (csv.ml))
+  (deps   (csv.pp.ml csv_memory.ml ../pp.ml))
+  (action (chdir ${ROOT} (run ${bin:ocaml} pp.ml)))))

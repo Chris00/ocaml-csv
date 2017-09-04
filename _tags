@@ -1,5 +1,0 @@
-# OASIS_START
-# OASIS_STOP
-
-true: annot, safe_string
-true: warn(A-4@8-29-33-40-41-42-44-45-48)

@@ -42,9 +42,14 @@
    http://www.creativyst.com/Doc/Articles/CSV/CSV01.htm
 *)
 
+IF_LWT(
+open Csv__Csv_utils
+module Header = Csv__Csv_row.Header
+module Row = Csv__Csv_row.Row
+,
 include Csv_utils
 module Header = Csv_row.Header
-module Row = Csv_row.Row
+module Row = Csv_row.Row)
 
 type t = string list list
 

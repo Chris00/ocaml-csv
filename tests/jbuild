@@ -1,0 +1,34 @@
+(jbuild_version 1)
+
+(executables
+ ((names     (test test_header test_write test_fix))
+  (modules   (test test_header test_write test_fix))
+  (libraries (csv))))
+
+(alias
+ ((name    runtest)
+  (package csv)
+  (deps    (test.exe test_header.exe test_write.exe test_fix.exe
+            (glob_files *.csv)))
+  (action  (run ${exe:test.exe}))
+  (action  (run ${exe:test_header.exe}))
+  (action  (run ${exe:test_write.exe}))
+  (action  (run ${exe:test_fix.exe}))))
+
+
+(executables
+ ((names     (test_lwt))
+  (modules   (test_lwt))
+  (libraries (csv_lwt lwt.unix))))
+
+(alias
+ ((name    runtest)
+  (package csv-lwt)
+  (deps    (test_lwt.exe (glob_files *.csv)))
+  (action  (run ${<}))))
+
+
+(rule
+ ((targets (test.ml test_lwt.ml))
+  (deps   (test.pp.ml ../pp.ml))
+  (action (chdir ${ROOT} (run ${bin:ocaml} pp.ml)))))

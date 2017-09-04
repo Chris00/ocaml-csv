@@ -1,60 +1,29 @@
-PKGNAME	    = $(shell oasis query name)
-PKGVERSION  = $(shell oasis query version)
-PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
+PKGVERSION = $(shell git describe --always --dirty)
 
-DISTFILES   = LICENSE.txt INSTALL.txt README.md _oasis \
-  _tags Makefile setup.ml csv.install pp.ml \
-  $(filter-out %~, $(wildcard src/*) $(wildcard examples/*) $(wildcard tests/*))
+WEB = san@math.umons.ac.be:~/public_html/software/
 
-WEB = san@math.umons.ac.be:~/public_html/software/csv/
+build:
+	jbuilder build @install examples/example.exe -j 4 --dev
 
-.PHONY: all byte native configure doc test install uninstall reinstall \
-  upload-doc
+tests: build
+	jbuilder runtest
 
-all byte native: configure opam
-	ocaml setup.ml -build
+install uninstall clean:
+	jbuilder $@
 
-configure: setup.ml
-	ocaml $< -configure --enable-tests --enable-lwt
-
-setup.ml: _oasis
-	oasis setup -setup-update dynamic
-
-test doc install uninstall reinstall: all
-	ocaml setup.ml -$@
+doc: build
+	sed -e 's/%%VERSION%%/$(PKGVERSION)/' src/csv.mli \
+	  > _build/default/src/csv.mli
+	jbuilder build @doc
+	echo '.def { background: #f0f0f0; }' >> _build/default/_doc/odoc.css
 
 upload-doc: doc
-	scp -C -p -r _build/API.docdir $(WEB)
+	scp -C -p -r _build/default/_doc/csv/ $(WEB)/
+	scp -C -p -r _build/default/_doc/csv-lwt/ $(WEB)/
 
-csvtool: all
-	./csvtool.native pastecol 1-3 2,1,2 \
+csvtool: build
+	jbuilder exec csvtool pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
-opam csv.install: _oasis
-	oasis2opam --local -y
 
-dist tar: setup.ml opam
-	@ if [ -z "$(PKGNAME)" ]; then echo "PKGNAME not defined"; exit 1; fi
-	@ if [ -z "$(PKGVERSION)" ]; then \
-		echo "PKGVERSION not defined"; exit 1; fi
-	mkdir $(PKGNAME)-$(PKGVERSION)
-	cp -r --parents $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
-#	Generate a setup.ml independent of oasis
-	cd $(PKGNAME)-$(PKGVERSION) && oasis setup
-	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
-	$(RM) -rf $(PKGNAME)-$(PKGVERSION)
-
-upload-tar: tar
-	scp -C -p -r $(PKG_TARBALL) $(WEB)
-
-web: doc
-	$(MAKE) -C doc $@
-
-.PHONY: clean distclean
-clean::
-	ocaml setup.ml -clean
-	$(RM) $(PKG_TARBALL) setup.data
-
-distclean:
-	ocaml setup.ml -distclean
-	$(RM) $(wildcard *.ba[0-9] *.bak *~ *.odocl)
+.PHONY: build tests install uninstall doc upload-doc clean csvtool

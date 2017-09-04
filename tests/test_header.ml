@@ -24,17 +24,16 @@ let testcsv ?has_header ?header filename expected =
     failwith "failed"
 
 let () =
+  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));
   testcsv
-    "tests/testcsv11.csv" ~has_header:true
-    [["h1", "a";  "h2", "b";  "", "c";  "h4", "d"]]
+    "testcsv11.csv" ~has_header:true
+    [["h1", "a";  "h2", "b";  "", "c";  "h4", "d"]];
 
-let () =
   testcsv
-    "tests/testcsv11.csv" ~has_header:true ~header:["q1"; ""; "q3"; "q4"]
-    [["q1", "a";  "h2", "b";  "q3", "c";  "q4", "d"]]
+    "testcsv11.csv" ~has_header:true ~header:["q1"; ""; "q3"; "q4"]
+    [["q1", "a";  "h2", "b";  "q3", "c";  "q4", "d"]];
 
-let () =
   testcsv
-    "tests/testcsv2.csv" ~header:["h1"; ""; "h1"] (* duplicate header *)
+    "testcsv2.csv" ~header:["h1"; ""; "h1"] (* duplicate header *)
     [ [ "h1", "Normal field";  "", "Quoted field";
         "", "Quoted field with \"\" quotes" ] ]

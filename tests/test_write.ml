@@ -13,4 +13,5 @@ let roundtrip ?excel_tricks csv =
   )
 
 let () =
+  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));
   roundtrip [ [ "01234567" ] ] ~excel_tricks:true
