@@ -66,8 +66,8 @@ let () =
   let csv_mem = substitute ("src" / "csv_memory.ml") [] in
   if Sys.file_exists "src" then
     write ("src" / "csv.ml") (csv_std @ csv_mem);
-  if Sys.file_exists "csv-lwt" then
-    write ("csv-lwt" / "csv_lwt.ml") (substitute pp sub_lwt);
+  if Sys.file_exists "lwt" then
+    write ("lwt" / "csv_lwt.ml") (substitute pp sub_lwt);
   if Sys.file_exists "tests" then (
     let test = "tests" / "test.pp.ml" in
     write ("tests" / "test.ml") (substitute test sub_std);

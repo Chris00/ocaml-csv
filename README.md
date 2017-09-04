@@ -50,6 +50,6 @@ Documentation
 The documentation for the `Csv` (resp. `Csv_lwt`) module can be
 found [online](https://math.umons.ac.be/anum/software/csv/) 
 (resp. [here](https://math.umons.ac.be/anum/software/csv-lwt/)) or in
-[csv.mli](src/csv.mli) (resp. [csv_lwt.mli](csv-lwt/csv_lwt.mli)).
+[csv.mli](src/csv.mli) (resp. [csv_lwt.mli](lwt/csv_lwt.mli)).
 
 Also see the [examples](examples/).
