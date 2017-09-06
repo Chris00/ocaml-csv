@@ -4,3 +4,4 @@ TODO
 .merlin
 *.install
 data/
+packages
