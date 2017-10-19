@@ -375,7 +375,10 @@ module Rows : sig
              ?backslash_escape: bool -> ?excel_tricks:bool ->
              ?fix: bool ->
              string -> Row.t list
-  (** See {!Csv.load}. *)
+  (** See {!Csv.load} and {!Csv.of_in_obj} for the optional parameters.
+     Note that [has_header] is false by default to have a uniform
+     interface but you likely want to set it to [true] or to
+     explicitly provide [header].  *)
 
   val current : in_channel -> Row.t
   (** See {!Csv.current_record}. *)
