@@ -90,6 +90,10 @@ val of_in_obj : ?separator:char -> ?strip: bool ->
                 in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
+    Note that data is read on a as-needed basis by the functions {!next},
+    {!fold_left},... so the channel must stay open while these functions
+    are executed.  When you are done with the channel, call {!close_in} to
+    close it.
 
     @param separator What character the separator is.  The default is
     [','].  You should be aware however that, in the countries where
@@ -130,7 +134,9 @@ val of_channel : ?separator:char -> ?strip: bool ->
                  ?fix: bool ->
                  Pervasives.in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
-      standard channel. *)
+      standard channel.
+      Note that, because the data is read on a as-needed basis, the
+      [Pervasive.in_channel] must stay open while you are reading data. *)
 
 val of_string : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
