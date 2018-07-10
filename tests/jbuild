@@ -8,13 +8,26 @@
 (alias
  ((name    runtest)
   (package csv)
-  (deps    (test.exe test_header.exe test_write.exe test_fix.exe
-            (glob_files *.csv)))
-  (action  (run ${exe:test.exe}))
-  (action  (run ${exe:test_header.exe}))
-  (action  (run ${exe:test_write.exe}))
-  (action  (run ${exe:test_fix.exe}))))
+  (deps    (test.exe (glob_files *.csv)))
+  (action  (run ${<}))))
 
+(alias
+ ((name    runtest)
+  (package csv)
+  (deps    (test_header.exe (glob_files *.csv)))
+  (action  (run ${<}))))
+
+(alias
+ ((name    runtest)
+  (package csv)
+  (deps    (test_write.exe (glob_files *.csv)))
+  (action  (run ${<}))))
+
+(alias
+ ((name    runtest)
+  (package csv)
+  (deps    (test_fix.exe (glob_files *.csv)))
+  (action  (run ${<}))))
 
 (executables
  ((names     (test_lwt))
