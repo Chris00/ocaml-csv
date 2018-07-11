@@ -28,11 +28,11 @@ csvtool: build
 
 
 submit:
-	topkg distrib
-	topkg publish distrib
-	topkg opam pkg -n csv
-	topkg opam pkg -n csv-lwt
-# 	Perform the subtitution that topkkg does not
+	dune-release distrib
+	dune-release publish distrib
+	dune-release opam pkg -p csv
+	dune-release opam pkg -p csv-lwt
+# 	Perform the subtitution that dune-release does not
 #	(until opam2, https://discuss.ocaml.org/t/sync-versions-of-several-packages-coming-from-a-single-repo/808/5)
 	sed -e 's/\(^ *"csv"\) */\1 {= "$(PKGVERSION)"}/' --in-place \
 	  _build/csv-lwt.$(PKGVERSION)/opam
@@ -42,6 +42,6 @@ submit:
 	cp -r _build/csv.* packages/csv/
 	cp -r _build/csv-lwt.* packages/csv-lwt/
 	cd packages && git add csv csv-lwt
-#	CONDUIT_TLS=native topkg opam submit -n csv -n csv-lwt
+#	CONDUIT_TLS=native dune-release opam submit -n csv -n csv-lwt
 
 .PHONY: build tests install uninstall doc upload-doc clean csvtool submit
