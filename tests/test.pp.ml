@@ -22,7 +22,7 @@ let do_testcsv ?separator ?strip ?backslash_escape filename expected =
 
 
 let main () =
-  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));
+  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));%lwt
   do_testcsv
     "testcsv1.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns." ] ];%lwt
