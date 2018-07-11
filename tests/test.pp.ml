@@ -1,5 +1,4 @@
-open Printf
-IF_LWT(open Lwt  open Lwt_io,)
+IF_LWT(open Lwt  open Lwt_io, open Printf)
 
 module C = IF_LWT(Csv_lwt, Csv)
 
@@ -99,7 +98,7 @@ let () =
                [ "F"; "G"; "H"; "I"; "" ];
                [ "" ];
                [ ] ] in
-  assert (Csv.map ~f:String.capitalize csv1 = csv2)
+  assert (Csv.map ~f:String.capitalize_ascii csv1 = csv2)
 
 
 let () =
