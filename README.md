@@ -21,14 +21,14 @@ for the standard version and
     opam install csv-lwt
 
 for the LWT one.  If you prefer to compile and install by hand,
-make sure you have [jbuilder][] and run
+make sure you have [dune][] and run
 
-    jbuilder build @install
-    jbuilder install csv
-    jbuilder install csv-lwt
+    dune build @install
+    dune install csv
+    dune install csv-lwt
 
 [OPAM]: https://opam.ocaml.org/
-[jbuilder]: https://github.com/janestreet/jbuilder
+[dune]: https://github.com/ocaml/dune
 
 
 Uninstall
@@ -41,8 +41,8 @@ With OPAM:
 
 Manually (from the source directory):
 
-    jbuilder uninstall csv
-    jbuilder uninstall csv-lwt
+    dune uninstall csv
+    dune uninstall csv-lwt
 
 Documentation
 -------------

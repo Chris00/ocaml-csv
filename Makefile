@@ -3,18 +3,18 @@ PKGVERSION = $(shell git describe --always --dirty)
 WEB = san@math.umons.ac.be:~/public_html/software/
 
 build:
-	jbuilder build @install examples/example.exe -j 4 --dev
+	dune build @install examples/example.exe -j 4
 
 tests: build
-	jbuilder runtest
+	dune runtest --force
 
 install uninstall clean:
-	jbuilder $@
+	dune $@
 
 doc: build
 	sed -e 's/%%VERSION%%/$(PKGVERSION)/' src/csv.mli \
 	  > _build/default/src/csv.mli
-	jbuilder build @doc
+	dune build @doc
 	echo '.def { background: #f0f0f0; }' >> _build/default/_doc/odoc.css
 
 upload-doc: doc
@@ -23,7 +23,7 @@ upload-doc: doc
 	scp -C -p _build/default/_doc/odoc.css $(WEB)
 
 csvtool: build
-	jbuilder exec csvtool pastecol 1-3 2,1,2 \
+	dune exec csvtool pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
 
