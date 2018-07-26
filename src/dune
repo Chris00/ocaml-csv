@@ -1,0 +1,12 @@
+(library
+ (name        csv)
+ (public_name csv)
+ (modules     Csv Csv_utils Csv_row)
+ (flags       :standard -safe-string)
+ (libraries bytes)
+ (synopsis "A pure OCaml library to read and write CSV files."))
+
+(rule
+ (targets csv.ml)
+ (deps    csv.pp.ml csv_memory.ml ../pp.ml)
+ (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))

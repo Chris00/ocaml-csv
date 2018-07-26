@@ -1,0 +1,17 @@
+(library
+ (name        csv_lwt)
+ (public_name csv-lwt)
+ (modules     Csv_lwt Csv_utils)
+ (flags       :standard -safe-string)
+ (libraries   bytes lwt lwt.unix csv)
+ (synopsis "A pure OCaml library to read and write CSV files (LWT version)."))
+
+(rule
+ (targets csv_lwt.ml)
+ (deps    ../src/csv.pp.ml ../src/csv_memory.ml ../pp.ml)
+ (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))
+
+(rule
+ (targets csv_utils.ml)
+ (deps    ../src/csv_utils.ml)
+ (action  (copy %{deps} %{targets})))

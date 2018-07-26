@@ -1,0 +1,45 @@
+(executables
+ (names     test test_header test_write test_fix)
+ (modules   test test_header test_write test_fix)
+ (libraries csv))
+
+(alias
+ (name    runtest)
+ (package csv)
+ (deps    (:p test.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+(alias
+ (name    runtest)
+ (package csv)
+ (deps    (:p test_header.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+(alias
+ (name    runtest)
+ (package csv)
+ (deps    (:p test_write.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+(alias
+ (name    runtest)
+ (package csv)
+ (deps    (:p test_fix.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+(executables
+ (names     test_lwt)
+ (modules   test_lwt)
+ (libraries csv_lwt lwt.unix))
+
+(alias
+ (name    runtest)
+ (package csv-lwt)
+ (deps    (:p test_lwt.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+
+(rule
+ (targets test.ml test_lwt.ml)
+ (deps   test.pp.ml ../pp.ml)
+ (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))
