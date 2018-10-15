@@ -24,6 +24,8 @@
  * Acting on CSV data in memory
  *)
 
+open Csv
+
 let lines = List.length
 
 let columns csv =
@@ -142,7 +144,7 @@ let rec compare_row (row1 : string list) row2 =
   match row1, row2 with
   | [], [] -> 0
   | x :: xs, y :: ys ->
-      let c = compare x y in
+      let c = Pervasives.compare x y in
       if c <> 0 then c else compare_row xs ys
   | "" :: xs , [] ->
       compare_row xs []
