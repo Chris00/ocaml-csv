@@ -26,6 +26,8 @@ csvtool: build
 	dune exec csvtool pastecol 1-3 2,1,2 \
 	  tests/testcsv9.csv tests/testcsv9.csv
 
+example:
+	dune exec examples/example.exe
 
 submit:
 	dune-release distrib
@@ -44,4 +46,4 @@ submit:
 	cd packages && git add csv csv-lwt
 #	CONDUIT_TLS=native dune-release opam submit -n csv -n csv-lwt
 
-.PHONY: build tests install uninstall doc upload-doc clean csvtool submit
+.PHONY: build tests install uninstall doc upload-doc clean csvtool example submit

@@ -40,3 +40,10 @@ let () =
   ) csvs;
   printf "Compare (Embedded CSV) example1.csv = %i\n"
          (Csv.compare ecsv (snd(List.hd csvs)))
+
+let () =
+  (* Save it to a file *)
+  let ecsv = Csv.input_all(Csv.of_string embedded_csv) in
+  let fname = Filename.concat (Filename.get_temp_dir_name()) "example.csv" in
+  Csv.save fname ecsv;
+  printf "Saved CSV to file %S.\n" fname
