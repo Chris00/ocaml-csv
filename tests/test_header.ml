@@ -24,7 +24,6 @@ let testcsv ?has_header ?header filename expected =
     failwith "failed"
 
 let () =
-  printf "TEST %s\n%!" (Filename.basename Sys.argv.(0));
   testcsv
     "testcsv11.csv" ~has_header:true
     [["h1", "a";  "h2", "b";  "", "c";  "h4", "d"]];
