@@ -326,7 +326,7 @@ module Row : sig
 
   val find : t -> string -> string
   (** [find row header] return the value of the colum labelled with
-      [header] (or [""] if not such header has been declared).  *)
+      [header] (or [""] if no such header has been declared).  *)
 
   val to_list : t -> string list
   (** [to_list row] convert [row] to the usual representation, the
