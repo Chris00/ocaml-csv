@@ -1,0 +1,4 @@
+
+(executables
+ (names     pp)
+ (libraries str unix))

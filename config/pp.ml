@@ -1,8 +1,5 @@
 (* Generate interfaces for standard IO and Lwt. *)
 
-#load "str.cma";;
-#load "unix.cma";;
-
 let ( / ) = Filename.concat
 
 let read_all fname =

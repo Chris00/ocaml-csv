@@ -8,5 +8,5 @@
 
 (rule
  (targets csv.ml)
- (deps    csv.pp.ml csv_memory.ml ../pp.ml)
- (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))
+ (deps    csv.pp.ml csv_memory.ml ../config/pp.exe)
+ (action (chdir %{workspace_root} (run config/pp.exe))))

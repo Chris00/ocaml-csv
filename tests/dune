@@ -41,5 +41,5 @@
 
 (rule
  (targets test.ml test_lwt.ml)
- (deps   test.pp.ml ../pp.ml)
- (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))
+ (deps   test.pp.ml ../config/pp.exe)
+ (action (chdir %{workspace_root} (run config/pp.exe))))

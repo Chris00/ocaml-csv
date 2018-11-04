@@ -8,8 +8,8 @@
 
 (rule
  (targets csv_lwt.ml)
- (deps    ../src/csv.pp.ml ../src/csv_memory.ml ../pp.ml)
- (action (chdir %{workspace_root} (run %{bin:ocaml} pp.ml))))
+ (deps    ../src/csv.pp.ml ../src/csv_memory.ml ../config/pp.exe)
+ (action (chdir %{workspace_root} (run config/pp.exe))))
 
 (rule
  (targets csv_utils.ml)
