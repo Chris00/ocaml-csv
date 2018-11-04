@@ -1,3 +1,9 @@
+2.2 2018-11-04
+--------------
+
+- Compile the pre-processing script.  This makes possible to install
+  the package using a compiler with the `-static` flag. (#25)
+
 2.1 2018-07-11
 --------------
 
