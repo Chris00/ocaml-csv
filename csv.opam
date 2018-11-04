@@ -19,7 +19,7 @@ depends: [
   "base-bytes"
   "base-unix"
 ]
-synopsis: "A pure OCaml library to read and write CSV files."
+synopsis: "A pure OCaml library to read and write CSV files"
 description: """
 This is a pure OCaml library to read and write CSV files, including
 all extensions used by Excel — e.g. quotes, newlines, 8 bit characters
