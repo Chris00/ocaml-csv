@@ -578,7 +578,7 @@ and trim_flags flags =
 (* Process the arguments. *)
 let usage =
   "csvtool - Copyright (C) 2005-2006 Richard W.M. Jones, Merjis Ltd.
-           - Copyright (C) 2007- Richard W.M. Jones & Christophe Troestler
+        - Copyright (C) 2007- Richard W.M. Jones & Christophe Troestler
 
 csvtool is a tool for performing manipulations on CSV files from shell scripts.
 
