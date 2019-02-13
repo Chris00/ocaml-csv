@@ -1,20 +1,16 @@
 language: c
-sudo: false
-addons:
-  apt:
-    sources:
-    - avsm
-    packages:
-    - ocaml
-    - ocaml-native-compilers
-    - opam
-
-script: bash -ex .travis-ci.sh
+sudo: required
+install: test -e .travis.opam.sh || wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
 env:
-  - OPAM_SWITCH=4.03.0
-  - OPAM_SWITCH=4.04.0
-  - OPAM_SWITCH=4.06.1
-  - OPAM_SWITCH=4.07.0
-cache:
-  directories:
-  - $HOME/.opam
+  global:
+    - PINS="csv.dev:. csv-lwt.dev:."
+  matrix:
+    - OCAML_VERSION=4.03 PACKAGE="csv.dev"
+    - OCAML_VERSION=4.04 PACKAGE="csv.dev"
+    - OCAML_VERSION=4.06 PACKAGE="csv.dev"
+    - OCAML_VERSION=4.07 PACKAGE="csv.dev"
+    - OCAML_VERSION=4.07 PACKAGE="csv-lwt.dev"
+os:
+  - linux
+  - osx
