@@ -62,8 +62,14 @@ let main () =
     "testcsv8.csv"
     [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]];%lwt
 
+  do_testcsv "testcsv9.csv"
+    [["A1"; "A2"; "A3"]; ["B1"; "B2"]; ["C1"]];%lwt
+
   do_testcsv "testcsv10.csv" ~backslash_escape:true
-             [["a"; "b\"c"; "d\\d\000"]]
+    [["a"; "b\"c"; "d\\d\000"]];%lwt
+
+  do_testcsv "testcsv12.csv" ~separator:';'
+    [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]]
 
 let () =
   IF_LWT(Lwt_main.run,)(main())
