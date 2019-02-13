@@ -246,8 +246,8 @@ val to_out_obj : ?separator:char ->
       @param backslash_escape Prefer to escape the separator in a
       quoted string with a backslash (e.g. "\"") instead of doubling
       it.  Also backslash-escape '\n', '\r', '\t', '\b', '\026' (as
-      '\Z') and '\000' (as '\0') This is nice for interoperability but
-      is nonstandard CSV to it is set to [false] by default.
+      '\Z') and '\000' (as '\0'). This is nice for interoperability but
+      is nonstandard CSV so it is set to [false] by default.
 
       @param excel_tricks enables Excel tricks, namely the fact that
       '\000' is represented as '"' followed by '0' and the fact that a
