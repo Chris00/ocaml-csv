@@ -226,6 +226,7 @@ val load_rows : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 ?fix: bool ->
                 (string list -> unit) -> Pervasives.in_channel -> unit
+  [@@deprecated "Use Csv.iter on on a Csv.in_channel"]
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
       {!Csv.of_channel}. *)
 
@@ -285,7 +286,8 @@ val output_all : out_channel -> t -> unit
 val save_out : ?separator:char ->
                ?backslash_escape: bool -> ?excel_tricks:bool ->
                Pervasives.out_channel -> t -> unit
-  (** @deprecated Save string list list to a channel. *)
+  [@@deprecated "Save Csv.t to a channel"]
+  (** @deprecated Save {!Csv.t} to a channel. *)
 
 val save : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
            ?quote_all:bool ->
