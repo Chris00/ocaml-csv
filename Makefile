@@ -12,10 +12,11 @@ install uninstall clean:
 	dune $@
 
 doc: build
-	sed -e 's/%%VERSION%%/$(PKGVERSION)/' src/csv.mli \
-	  > _build/default/src/csv.mli
 	dune build @doc
-	echo '.def { background: #f0f0f0; }' >> _build/default/_doc/odoc.css
+	sed -e 's/%%VERSION%%/$(PKGVERSION)/' --in-place \
+	  _build/default/_doc/_html/csv/Csv/index.html \
+	  _build/default/_doc/_html/csv-lwt/Csv_lwt/index.html
+
 
 upload-doc: doc
 	scp -C -p -r _build/default/_doc/csv/ $(WEB)

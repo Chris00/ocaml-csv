@@ -27,8 +27,8 @@
     [strip=false] in the creation functions.
 
     @version %%VERSION%%
-    @author Richard Jones <rjones\@redhat.com>
-    @author Christophe Troestler <Christophe.Troestler\@umons.ac.be>
+    @author Richard Jones <rjones@redhat.com>
+    @author Christophe Troestler <Christophe.Troestler@umons.ac.be>
  *)
 
 
