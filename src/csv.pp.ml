@@ -77,6 +77,12 @@ exception Failure of int * int * string
 
 let buffer_len = 0x1FFF
 
+IF_LWT(,
+type std_in_channel = in_channel
+let std_input = input
+let std_close_in = close_in
+)
+
 (* We buffer the input as this allows the be efficient while using
    very basic input channels.  The drawback is that if we want to use
    another tool, there will be data hold in the buffer.  That is why
@@ -493,11 +499,11 @@ let of_channel ?separator ?strip ?has_header ?header
        val fh = fh
        method input s ofs len =
          try
-           let r = Pervasives.input fh s ofs len in
+           let r = std_input fh s ofs len in
            if r = 0 then raise End_of_file;
            r
          with Sys_blocked_io -> 0
-       method close_in() = Pervasives.close_in fh
+       method close_in() = std_close_in fh
      end)
 
 let of_string ?separator ?strip ?has_header ?header
@@ -591,6 +597,11 @@ let escape =
     | '\026' -> 'Z'
     | c ->  c in
   Array.init 256 escape_of
+
+IF_LWT(,
+type std_out_channel = out_channel
+let std_close_out = close_out
+)
 
 (* FIXME: Rework this part *)
 type out_channel = {
@@ -760,7 +771,7 @@ let save ?separator ?backslash_escape ?excel_tricks ?quote_all fname t =
   let csv = to_channel ?separator ?backslash_escape ?excel_tricks
               ?quote_all ch in
   output_all csv t;%lwt
-  IF_LWT(Lwt_io.close, Pervasives.close_out) ch
+  IF_LWT(Lwt_io.close, std_close_out) ch
 
 (*
  * Reading rows with headers

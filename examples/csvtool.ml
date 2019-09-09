@@ -539,7 +539,7 @@ let cmd_join ~input_sep ~output_sep ~chan colspec1 colspec2 files =
     List.hd (Csv.set_columns ~cols:value_width [["!MULTIPLE VALUES"]]) in
 
   (* Generate output CSV. *)
-  let keys = List.sort Pervasives.compare keys in
+  let keys = List.sort compare keys in
   let keys = List.map (fun key -> key, []) keys in
   let csv = List.fold_left (
     fun keys hash ->

@@ -80,6 +80,9 @@ exception Failure of int * int * string
     correspond to the usual spreadsheet numbering but differing from
     [List.nth] of the OCaml representation). *)
 
+type std_in_channel = in_channel
+(** Alias for [in_channel] in the standard OCaml library. *)
+
 type in_channel
 (** Stateful handle to input CSV files. *)
 
@@ -132,11 +135,11 @@ val of_channel : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
                  ?fix: bool ->
-                 Pervasives.in_channel -> in_channel
+                 std_in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel.
       Note that, because the data is read on a as-needed basis, the
-      [Pervasive.in_channel] must stay open while you are reading data. *)
+      [std_in_channel] must stay open while you are reading data. *)
 
 val of_string : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
@@ -171,7 +174,7 @@ val load : ?separator:char -> ?strip: bool ->
 
 val load_in : ?separator:char -> ?strip: bool ->
               ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix: bool ->
-              Pervasives.in_channel -> t
+              std_in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
       See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
 
@@ -225,13 +228,16 @@ val current_record : in_channel -> string list
 val load_rows : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
                 ?fix: bool ->
-                (string list -> unit) -> Pervasives.in_channel -> unit
+                (string list -> unit) -> std_in_channel -> unit
   [@@deprecated "Use Csv.iter on on a Csv.in_channel"]
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
       {!Csv.of_channel}. *)
 
 (************************************************************************)
 (** {2 Output} *)
+
+type std_out_channel = out_channel
+(** Alias for [out_channel] in the standard OCaml library. *)
 
 type out_channel
 
@@ -262,7 +268,7 @@ val to_out_obj : ?separator:char ->
 val to_channel : ?separator:char ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
                  ?quote_all:bool ->
-                 Pervasives.out_channel -> out_channel
+                 std_out_channel -> out_channel
   (** Same as {!Csv.to_out_obj} but output to a standard channel. *)
 
 val to_buffer : ?separator:char ->
@@ -285,7 +291,7 @@ val output_all : out_channel -> t -> unit
 
 val save_out : ?separator:char ->
                ?backslash_escape: bool -> ?excel_tricks:bool ->
-               Pervasives.out_channel -> t -> unit
+               std_out_channel -> t -> unit
   [@@deprecated "Save Csv.t to a channel"]
   (** @deprecated Save {!Csv.t} to a channel. *)
 
@@ -306,7 +312,7 @@ val print_readable : t -> unit
       {!Csv.print}.  This is a one-way operation.  There is no easy way
       to parse the output of this command back into CSV data.  *)
 
-val save_out_readable : Pervasives.out_channel -> t -> unit
+val save_out_readable : std_out_channel -> t -> unit
   (** As for {!Csv.print_readable}, allowing the output to be sent to
       a channel.  *)
 
