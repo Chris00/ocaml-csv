@@ -1,7 +1,10 @@
 2.3 2019-09-09
 --------------
 
-- Be compatible with OCaml ≥ 4.08.
+- Be compatible with OCaml ≥ 4.08 (fixes #28).
+- Put `csvtool` in its own package.
+- Use UTF-8 to determine column widths for the "readable" format
+  (fixes #21).
 - Add deprecation attributes.
 - Fix alignment in `csvtool` usage message.
 - Small improvements to the documentation.
