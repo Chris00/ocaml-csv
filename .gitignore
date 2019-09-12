@@ -5,3 +5,4 @@ TODO
 *.install
 data/
 packages
+.~*

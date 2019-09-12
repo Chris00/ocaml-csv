@@ -204,9 +204,18 @@ let cmd_height ~input_sep ~chan files =
                    Csv.fold_left ~f:(fun h _ -> h + 1) ~init:h csv_in) in
   fprintf chan "%d\n" height
 
+let length_utf8 s =
+  Uutf.String.fold_utf_8
+    (fun cnt _ char ->
+      match char with
+      | `Uchar c ->
+         if Uchar.equal c Uutf.u_bom then cnt else cnt + 1
+      | `Malformed s -> failwith(sprintf "Malformed UTF-8 char \"%s\"" s))
+    0 s
+
 let cmd_readable ~input_sep ~chan files =
   let csv = List.concat (List.map (Csv.load ~separator:input_sep) files) in
-  Csv.save_out_readable chan csv
+  Csv.save_out_readable chan csv ~length:length_utf8
 
 let cmd_cat ~input_sep ~output_sep ~chan files =
   (* Avoid loading the whole file into memory. *)

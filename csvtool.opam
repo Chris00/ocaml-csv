@@ -19,6 +19,7 @@ depends: [
   "base-bytes"
   "base-unix"
   "csv" {= version}
+  "uutf"
 ]
 synopsis: "Command line tool for handling CSV files"
 description: """

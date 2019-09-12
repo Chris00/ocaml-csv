@@ -2,4 +2,15 @@
  (names        csvtool)
  (public_names csvtool)
  (package      csvtool)
- (libraries csv unix))
+ (libraries csv unix uutf))
+
+(rule
+ (targets test-utf8.output)
+ (deps    test-utf8.csv)
+ (action (with-stdout-to test-utf8.output
+          (run csvtool readable test-utf8.csv))))
+
+(alias
+ (name runtest)
+ (package csvtool)
+ (action (diff test-utf8.expected test-utf8.output)))
