@@ -1,0 +1,5 @@
+(executables
+ (names        csvtool)
+ (public_names csvtool)
+ (package      csvtool)
+ (libraries csv unix))

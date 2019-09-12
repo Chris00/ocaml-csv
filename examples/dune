@@ -1,6 +1,4 @@
 (executables
- (names        csvtool example)
- (public_names csvtool -)
- (package   csv)
+ (names     example)
  (libraries csv unix))
 
