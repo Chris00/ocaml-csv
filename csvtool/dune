@@ -8,7 +8,7 @@
  (targets test-utf8.output)
  (deps    test-utf8.csv)
  (action (with-stdout-to test-utf8.output
-          (run csvtool readable test-utf8.csv))))
+          (run %{exe:csvtool.exe} readable test-utf8.csv))))
 
 (alias
  (name runtest)
