@@ -305,16 +305,21 @@ val print : ?separator:char -> ?backslash_escape: bool -> ?excel_tricks:bool ->
             t -> unit
   (** Print the CSV data. *)
 
-val print_readable : t -> unit
-  (** Print the CSV data to [stdout] in a human-readable format.  Not
-      much is guaranteed about how the CSV is printed, except that it
-      will be easier to follow than a "raw" output done with
-      {!Csv.print}.  This is a one-way operation.  There is no easy way
-      to parse the output of this command back into CSV data.  *)
+val print_readable : ?length:(string -> int) -> t -> unit
+(** Print the CSV data to [stdout] in a human-readable format.  Not
+    much is guaranteed about how the CSV is printed, except that it
+    will be easier to follow than a "raw" output done with
+    {!Csv.print}.  This is a one-way operation.  There is no easy way
+    to parse the output of this command back into CSV data.
 
-val save_out_readable : std_out_channel -> t -> unit
-  (** As for {!Csv.print_readable}, allowing the output to be sent to
-      a channel.  *)
+    @param length Function to compute the length of the column.  It
+                  defaults to [String.length] (i.e., count in bytes)
+                  but may be replaced to handle non-ASCII encodings.  *)
+
+val save_out_readable : std_out_channel ->
+                        ?length:(string -> int) -> t -> unit
+(** Same as {!Csv.print_readable}, allowing the output to be sent to
+    a channel.  *)
 
 
 (************************************************************************)

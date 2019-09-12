@@ -228,12 +228,7 @@ let map ~f csv =
   List.map (fun row -> List.map (fun el -> f el) row) csv
 
 
-let save_out_readable chan csv =
-  (* Escape all the strings in the CSV file first. *)
-  (* XXX Why are we doing this?  I commented it out anyway.
-  let csv = List.map (List.map String.escaped) csv in
-  *)
-
+let save_out_readable chan ?(length = String.length) csv =
   (* Find the width of each column. *)
   let widths =
     (* Don't consider rows with only a single element - typically
@@ -247,8 +242,8 @@ let save_out_readable chan csv =
     match csv with
       | [] -> []
       | row1 :: rest ->
-          let lengths_row1 = List.map String.length row1 in
-          let lengths_rest = List.map (List.map String.length) rest in
+          let lengths_row1 = List.map length row1 in
+          let lengths_rest = List.map (List.map length) rest in
           let max2rows r1 r2 =
             let rp =
               try List.combine r1 r2
@@ -284,7 +279,7 @@ let save_out_readable chan csv =
         List.iter (
           fun (cell, width) ->
             output_string chan cell;
-            let n = String.length cell in
+            let n = length cell in
             repeat (fun () -> output_char chan ' ') (width - n + 1)
         ) row;
         output_char chan '\n'
