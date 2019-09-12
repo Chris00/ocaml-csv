@@ -232,6 +232,7 @@ let rec save_out_row chan row ~length widths =
   match row, widths with
   | [], _ -> ()
   | _, [] -> failwith "Csv.save_out_readable: internal error"
+  | [cell], _ -> output_string chan cell
   | cell :: cells, width :: widths ->
      output_string chan cell;
      for _ = 1 to width - length cell + 1 do output_char chan ' ' done;
