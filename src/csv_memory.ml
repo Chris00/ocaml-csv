@@ -228,6 +228,15 @@ let map ~f csv =
   List.map (fun row -> List.map (fun el -> f el) row) csv
 
 
+let rec save_out_row chan row ~length widths =
+  match row, widths with
+  | [], _ -> ()
+  | _, [] -> failwith "Csv.save_out_readable: internal error"
+  | cell :: cells, width :: widths ->
+     output_string chan cell;
+     for _ = 1 to width - length cell + 1 do output_char chan ' ' done;
+     save_out_row chan cells ~length widths
+
 let save_out_readable chan ?(length = String.length) csv =
   (* Find the width of each column. *)
   let widths =
@@ -263,22 +272,8 @@ let save_out_readable chan ?(length = String.length) csv =
         output_string chan cell;
         output_char chan '\n'
     | row ->                            (* Other. *)
-        (* Pair up each cell with its max width. *)
-        let row =
-          let rec loop = function
-            | ([], _) -> []
-            | (_, []) -> failwith "Csv.save_out_readable: internal error"
-            | (cell :: cells, width :: widths) ->
-                (cell, width) :: loop (cells, widths)
-          in
-          loop (row, widths) in
-        List.iter (
-          fun (cell, width) ->
-            output_string chan cell;
-            let n = length cell in
-            for _ = 1 to width - n + 1 do output_char chan ' ' done
-        ) row;
-        output_char chan '\n'
+       save_out_row chan row widths ~length;
+       output_char chan '\n'
   ) csv
 
 let print_readable = save_out_readable stdout
