@@ -257,10 +257,6 @@ let save_out_readable chan ?(length = String.length) csv =
           List.fold_left max2rows lengths_row1 lengths_rest in
 
   (* Print out each cell at the correct width. *)
-  let rec repeat f = function
-    | 0 -> ()
-    | i -> f (); repeat f (i-1)
-  in
   List.iter (
     function
     | [cell] ->                         (* Single column. *)
@@ -280,7 +276,7 @@ let save_out_readable chan ?(length = String.length) csv =
           fun (cell, width) ->
             output_string chan cell;
             let n = length cell in
-            repeat (fun () -> output_char chan ' ') (width - n + 1)
+            for _ = 1 to width - n + 1 do output_char chan ' ' done
         ) row;
         output_char chan '\n'
   ) csv
