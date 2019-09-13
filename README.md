@@ -27,6 +27,14 @@ make sure you have [dune][] and run
     dune install csv
     dune install csv-lwt
 
+For the command line manipulation utility, do
+
+    opam install csvtool
+
+or
+
+    dune install csvtool
+
 [OPAM]: https://opam.ocaml.org/
 [dune]: https://github.com/ocaml/dune
 
@@ -38,17 +46,20 @@ With OPAM:
 
     opam remove csv
     opam remove csv-lwt
+	opam remove csvtool
 
 Manually (from the source directory):
 
     dune uninstall csv
     dune uninstall csv-lwt
+	dune uninstall csvtool
+
 
 Documentation
 -------------
 
 The documentation for the `Csv` (resp. `Csv_lwt`) module can be
-found [online](https://math.umons.ac.be/anum/software/csv/) 
+found [online](https://math.umons.ac.be/anum/software/csv/)
 (resp. [here](https://math.umons.ac.be/anum/software/csv-lwt/)) or in
 [csv.mli](src/csv.mli) (resp. [csv_lwt.mli](lwt/csv_lwt.mli)).
 
