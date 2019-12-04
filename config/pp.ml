@@ -4,7 +4,7 @@ let ( / ) = Filename.concat
 
 let read_all fname =
   (* Avoid Bytes for backward compatibility. *)
-  let fh = open_in fname in
+  let fh = open_in_bin fname in
   let len = in_channel_length fh in
   let b = Buffer.create len in
   Buffer.add_channel b fh len;
