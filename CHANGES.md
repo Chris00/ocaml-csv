@@ -1,3 +1,9 @@
+2.4 2019-12-09
+--------------
+
+- Fixes the build on Windows with CRLF checkout (@dra27).
+- Allows use of the repo in a Duniverse (@dra27).
+
 2.3 2019-09-09
 --------------
 
