@@ -31,18 +31,18 @@ type in_channel
 val of_source : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
-                 ?fix:bool ->
+                 ?fix:bool -> ?check_bom:bool ->
                  _ Eio.Flow.source -> in_channel
 (** See {!Csv.of_in_obj}. *)
 
 val load : ?separator:char -> ?strip: bool ->
            ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
-           _ Eio.Path.t -> t
+           ?check_bom:bool -> _ Eio.Path.t -> t
 (** See {!Csv.load} *)
 
 val load_in : ?separator:char -> ?strip: bool ->
               ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
-              _ Eio.Flow.source -> t
+              ?check_bom:bool -> _ Eio.Flow.source -> t
 (** See {!Csv.load_in}. *)
 
 val next : in_channel -> string list
@@ -120,7 +120,7 @@ module Rows : sig
   val load : ?separator:char -> ?strip: bool ->
              ?has_header: bool -> ?header: string list ->
              ?backslash_escape: bool -> ?excel_tricks:bool ->
-             ?fix: bool ->
+             ?fix: bool -> ?check_bom:bool ->
              _ Eio.Path.t -> Row.t list
   (** See {!Csv.load}. *)
 
