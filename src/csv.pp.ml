@@ -120,11 +120,50 @@ type in_channel = {
   lstrip_buffer : Buffer.t -> unit;
   rstrip_substring : Bytes.t -> int -> int -> string;
   rstrip_contents : Buffer.t -> string;
+
+  mutable check_bom : bool;
 }
 
 (*
  * CSV input format parsing
  *)
+
+let bom = 
+    [ [| '\xEF' ; '\xBB'; '\xBF' |]  (* UTF-8 *)
+    ; [| '\xFE' ; '\xFF'  |]         (* UTF-16 BE *)
+    ; [| '\xFF' ; '\xFE'  |]         (* UTF-16 LE *)
+    ]
+
+(** check_bom [ic] [bom] return [None] if the stream does not start with a bom
+    and the number of bytes to ignore otherwise.
+ *)
+let check_bom
+ : in_channel -> (char array) list -> int option 
+ = fun ic bom -> 
+     let matched = 
+         List.fold_left (fun matched bom -> 
+           match matched with 
+           | Some _ -> matched
+           | None -> 
+             let length = Array.length bom in
+             if (ic.in1 - ic.in0) < length then (None)
+             else
+               (* We are supposed to be in the very begining of the file, 
+                  and in0 should be equal to 0. *)
+               let idx = ref (ic.in0) in
+               let equal = Array.for_all 
+                 (fun c -> 
+                     let res = Char.equal c (Bytes.get ic.in_buf !idx) in 
+                     incr idx;
+                     res
+                 ) 
+                 bom in 
+               match equal with 
+               | true -> Some length
+               | false -> None
+               ) 
+         None bom in 
+     matched
 
 (* [fill_in_buf_or_Eof chan] refills in_buf if needed (when empty).  After
    this [in0 < in1] or [in0 = in1 = 0], the latter indicating that
@@ -140,10 +179,24 @@ let fill_in_buf_or_Eof ic =
              ic.end_of_file <- true;
              Lwt.fail End_of_file
            )
-           else (ic.in1 <- len; Lwt.return())
+           else (ic.in1 <- len; 
+
+             if ic.check_bom then begin
+                 ic.check_bom <- false;
+                 match check_bom ic bom with 
+                 | None -> ()
+                 | Some l -> ic.in0 <- ic.in0 + l
+             end;
+             Lwt.return())
            ,
            try
              ic.in1 <- ic.in_chan#input ic.in_buf 0 buffer_len;
+             if ic.check_bom then begin
+                 ic.check_bom <- false;
+                 match check_bom ic bom with 
+                 | None -> ()
+                 | Some l -> ic.in0 <- ic.in0 + l
+             end
            with End_of_file ->
              ic.end_of_file <- true;
              raise End_of_file)
@@ -447,6 +500,7 @@ let fold_right ~f ic a0 =
 
 let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
               ?(backslash_escape=false) ?(excel_tricks=true) ?(fix=false)
+              ?(check_bom=false)
               in_chan =
   if separator = '\n' || separator = '\r' then
     invalid_arg "Csv (input): the separator cannot be '\\n' or '\\r'";
@@ -464,6 +518,7 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
       separator = separator;
       backslash_escape;
       excel_tricks = excel_tricks;
+      check_bom = check_bom;
       fix = fix;
       (* Stripping *)
       is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
@@ -492,9 +547,9 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
 
 IF_LWT(let of_channel = of_in_obj,
 let of_channel ?separator ?strip ?has_header ?header
-               ?backslash_escape ?excel_tricks ?fix fh =
+               ?backslash_escape ?excel_tricks ?fix ?check_bom fh =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks ?fix
+            ?backslash_escape ?excel_tricks ?fix ?check_bom
     (object
        val fh = fh
        method input s ofs len =
@@ -507,9 +562,9 @@ let of_channel ?separator ?strip ?has_header ?header
      end)
 
 let of_string ?separator ?strip ?has_header ?header
-              ?backslash_escape ?excel_tricks ?fix str =
+              ?backslash_escape ?excel_tricks ?fix ?check_bom str =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks ?fix
+            ?backslash_escape ?excel_tricks ?fix ?check_bom
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -553,26 +608,26 @@ object
 end
 )
 
-let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix fname =
+let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?check_bom fname =
   let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                 else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                             open_in fname)) in
   let%lwt csv = (of_channel ?separator ?strip ?backslash_escape
-                   ?excel_tricks ?fix fh) in
+                   ?excel_tricks ?fix ?check_bom fh) in
   let%lwt t = (input_all csv) in
   close_in csv;%lwt
   return(t)
 
-let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ch =
+let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?check_bom ch =
   let%lwt fh = (of_channel ?separator ?strip ?backslash_escape
-                  ?excel_tricks ?fix ch) in
+                  ?excel_tricks ?fix ?check_bom ch) in
   input_all fh
 
 IF_LWT(,
 (* @deprecated *)
-let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix f ch =
+let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?check_bom f ch =
   iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks
-             ?fix ch)
+             ?fix ?check_bom ch)
 )
 
 (*
@@ -832,12 +887,12 @@ module Rows = struct
     IF_LWT(Lwt_list.fold_left_s,List.fold_left) (fun a r -> f r a) a0 lr
 
   let load ?separator ?strip ?has_header ?header
-           ?backslash_escape ?excel_tricks ?fix fname =
+           ?backslash_escape ?excel_tricks ?fix ?check_bom fname =
     let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                   else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                               open_in fname)) in
     let%lwt csv = (of_channel ?separator ?strip ?has_header ?header
-                     ?backslash_escape ?excel_tricks ?fix fh) in
+                     ?backslash_escape ?excel_tricks ?fix ?check_bom fh) in
     let%lwt t = (input_all csv) in
     close_in csv;%lwt
     return(t)
