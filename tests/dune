@@ -1,6 +1,6 @@
 (executables
- (names     test test_header test_write test_fix)
- (modules   test test_header test_write test_fix)
+ (names     test test_header test_write test_fix test_bom)
+ (modules   test test_header test_write test_fix test_bom)
  (libraries csv))
 
 (alias
@@ -25,6 +25,12 @@
  (name    runtest)
  (package csv)
  (deps    (:p test_fix.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
+(alias
+ (name    runtest)
+ (package csv)
+ (deps    (:p test_bom.exe) (glob_files *.csv))
  (action  (run %{p})))
 
 (executables
