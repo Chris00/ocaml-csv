@@ -9,7 +9,7 @@
 (rule
  (targets csv_lwt.ml)
  (deps    ../src/csv.pp.ml ../src/csv_memory.ml ../config/pp.exe)
- (action (chdir %{workspace_root} (run config/pp.exe))))
+ (action (chdir %{project_root} (run config/pp.exe))))
 
 (rule
  (targets csv_utils.ml)

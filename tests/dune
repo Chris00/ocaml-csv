@@ -42,4 +42,4 @@
 (rule
  (targets test.ml test_lwt.ml)
  (deps   test.pp.ml ../config/pp.exe)
- (action (chdir %{workspace_root} (run config/pp.exe))))
+ (action (chdir %{project_root} (run config/pp.exe))))
