@@ -6,3 +6,5 @@ TODO
 data/
 packages
 .~*
+_opam/
+_build/

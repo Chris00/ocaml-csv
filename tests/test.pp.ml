@@ -1,16 +1,16 @@
 IF_LWT(open Lwt  open Lwt_io, open Printf)
 
-module C = IF_LWT(Csv_lwt, Csv)
+module C = IF_LWT(Csv_lwt, IF_EIO(Csv_eio, Csv))
 
-let do_testcsv ?separator ?strip ?backslash_escape filename expected =
+let do_testcsv IF_EIO(env, ()) ?separator ?strip ?backslash_escape filename expected =
   TRY_WITH(
-    let%lwt csv = (C.load ?separator ?strip ?backslash_escape filename) in
+    let%lwt csv = (C.load ?separator ?strip ?backslash_escape IF_EIO(Eio.(Path.(/) (Stdenv.fs env) filename), filename)) in
     if csv <> expected then (
       printf "input file: %s\n" filename;%lwt
       printf "Csv library produced:\n";%lwt
-      C.print csv;%lwt
+      C.print IF_EIO(~stdout:(Eio.Stdenv.stdout env),) csv;%lwt
       printf "Expected:\n";%lwt
-      C.print expected;%lwt
+      C.print IF_EIO(~stdout:(Eio.Stdenv.stdout env),) expected;%lwt
       raise(Failure "failed")
     )
     else return()
@@ -20,59 +20,65 @@ let do_testcsv ?separator ?strip ?backslash_escape filename expected =
     raise(Failure "failed")))
 
 
-let main () =
-  do_testcsv
+let main env =
+  do_testcsv env
     "testcsv1.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns." ] ];%lwt
-  do_testcsv
+  do_testcsv env
     "testcsv2.csv"
     [ [ "Normal field"; "Quoted field"; "Quoted field with \"\" quotes" ] ];%lwt
-  do_testcsv
+  do_testcsv env
     "testcsv3.csv"
     [ [ "" ];
       [ ""; "" ];
       [ ""; ""; "" ];
       [ ""; ""; ""; "" ];
       [ ""; ""; ""; ""; "" ] ];%lwt
-  do_testcsv
+  do_testcsv env
     "testcsv4.csv"
     [];%lwt
-  do_testcsv
+  do_testcsv env
     "testcsv5.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns.";
         "a second field"; "a third field" ];
       [ "a fourth field on a new line" ] ];%lwt
-  do_testcsv
+  do_testcsv env
     "testcsv6.csv"
     [ [ "This is a test\nwith commas,,,,,\n\nand carriage returns\nand \000";
         "a second field"; "a third field" ];
       [ "a fourth field on a new line" ] ];%lwt
 
-  do_testcsv
+  do_testcsv env
     "testcsv7.csv"
     [ [ "Initial"; "and"; "final"; ""; "spaces"; "do not matter" ];
       [ " Quoted spaces "; "are"; " important " ] ];%lwt
 
-  do_testcsv
+  do_testcsv env
     "testcsv7.csv" ~strip:false
     [ [ " Initial "; " and "; " final"; " "; "\tspaces   "; " do not matter " ];
       [ " Quoted spaces "; " are"; " important " ] ];%lwt
 
-  do_testcsv ~separator:'\t'
+  do_testcsv env ~separator:'\t'
     "testcsv8.csv"
     [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]];%lwt
 
-  do_testcsv "testcsv9.csv"
+  do_testcsv env "testcsv9.csv"
     [["A1"; "A2"; "A3"]; ["B1"; "B2"]; ["C1"]];%lwt
 
-  do_testcsv "testcsv10.csv" ~backslash_escape:true
+  do_testcsv env "testcsv10.csv" ~backslash_escape:true
     [["a"; "b\"c"; "d\\d\000"]];%lwt
 
-  do_testcsv "testcsv12.csv" ~separator:';'
+  do_testcsv env "testcsv12.csv" ~separator:';'
     [["Foo"; "Bar"]; ["Baz"; "Boof"]; ["a"; ""; "c"]]
 
 let () =
-  IF_LWT(Lwt_main.run,)(main())
+  IF_LWT(
+    Lwt_main.run (main ())
+  , IF_EIO(
+    Eio_main.run main
+  ,
+    main ()
+  ))
 
 let () =
   let csv1 = [ [ "a"; "b"; "c"; ""; "" ];
@@ -108,4 +114,5 @@ let () =
 
 let () =
   print_endline IF_LWT("All conformity tests succeeded (Csv_lwt).",
-                       "All conformity tests succeeded (Csv).")
+                IF_EIO("All conformity tests succeeded (Csv_eio).",
+                       "All conformity tests succeeded (Csv)."))

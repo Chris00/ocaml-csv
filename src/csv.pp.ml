@@ -42,7 +42,7 @@
    http://www.creativyst.com/Doc/Articles/CSV/CSV01.htm
 *)
 
-IF_LWT(
+IF_LWT_EIO(
 open Csv__Csv_utils
 module Header = Csv__Csv_row.Header
 module Row = Csv__Csv_row.Row
@@ -56,6 +56,8 @@ type t = string list list
 IF_LWT(
 open Lwt
 ,
+IF_EIO(
+,
 class type in_obj_channel =
 object
   method input : Bytes.t -> int -> int -> int
@@ -66,7 +68,7 @@ class type out_obj_channel =
 object
   method output : Bytes.t -> int -> int -> int
   method close_out : unit -> unit
-end)
+end))
 
 
 (*
@@ -77,7 +79,7 @@ exception Failure of int * int * string
 
 let buffer_len = 0x1FFF
 
-IF_LWT(,
+IF_LWT_EIO(,
 type std_in_channel = in_channel
 let std_input = input
 let std_close_in = close_in
@@ -92,8 +94,8 @@ let std_close_in = close_in
 
    FIXME: This is not made for non-blocking channels.  Can we fix it? *)
 type in_channel = {
-  in_chan : IF_LWT(Lwt_io.input_channel, in_obj_channel);
-  in_buf : Bytes.t;
+  in_chan : IF_LWT(Lwt_io.input_channel, IF_EIO([< Eio.Flow.source_ty] Eio.Flow.source, in_obj_channel));
+  in_buf : IF_EIO(Cstruct.t, Bytes.t);
   (* The data in the in_buf is at indexes i s.t. in0 <= i < in1.
      Invariant: 0 <= in0 ; in1 <= buffer_len in1 < 0 indicates a
      closed channel. *)
@@ -118,9 +120,25 @@ type in_channel = {
   (* Whitespace related stripping functions: *)
   is_space : char -> bool;
   lstrip_buffer : Buffer.t -> unit;
-  rstrip_substring : Bytes.t -> int -> int -> string;
+  rstrip_substring : IF_EIO(Cstruct.t, Bytes.t) -> int -> int -> string;
   rstrip_contents : Buffer.t -> string;
 }
+
+IF_EIO(
+let rstrip_substring buf off len =
+  let n = ref(off + len - 1) in
+  while !n >= off && is_space_or_tab(Cstruct.get buf !n) do decr n done;
+  Cstruct.to_string buf ~off ~len:(!n - off + 1)
+
+let in_buf_substring buf off len = Cstruct.to_string buf ~off ~len
+let unsafe_get_in_buf ({ buffer; off; _ } : Cstruct.t) i = Bigstringaf.unsafe_get buffer (off + i)
+let add_current_field_from_in_buf ic i =
+  Buffer.add_string ic.current_field (Cstruct.to_string ic.in_buf ~off:ic.in0 ~len:(i - ic.in0))
+,
+let unsafe_get_in_buf = Bytes.unsafe_get
+let add_current_field_from_in_buf ic i =
+  Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0)
+)
 
 (*
  * CSV input format parsing
@@ -143,7 +161,7 @@ let fill_in_buf_or_Eof ic =
            else (ic.in1 <- len; Lwt.return())
            ,
            try
-             ic.in1 <- ic.in_chan#input ic.in_buf 0 buffer_len;
+             ic.in1 <- IF_EIO(Eio.Flow.single_read ic.in_chan ic.in_buf, ic.in_chan#input ic.in_buf 0 buffer_len);
            with End_of_file ->
              ic.end_of_file <- true;
              raise End_of_file)
@@ -154,17 +172,17 @@ let fill_in_buf_or_Eof ic =
    satisfy [predicate].  *)
 let rec add_if_satisfy ic predicate i =
   if i >= ic.in1 then (
-    Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    add_current_field_from_in_buf ic i;
     ic.in0 <- i;
     fill_in_buf_or_Eof ic;%lwt
     add_if_satisfy ic predicate 0
   )
   else
-    let c = Bytes.unsafe_get ic.in_buf i in
+    let c = unsafe_get_in_buf ic.in_buf i in
     if predicate c then
       add_if_satisfy ic predicate (i + 1)
     else (
-      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      add_current_field_from_in_buf ic i;
       ic.in0 <- i; (* at char [c]; [i < ic.in1]. *)
       return()
     )
@@ -177,12 +195,12 @@ let add_spaces ic = add_if_satisfy ic ic.is_space ic.in0
    the next field. *)
 let has_next_field ic =
   assert(ic.in0 < ic.in1);
-  let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+  let c = unsafe_get_in_buf ic.in_buf ic.in0 in
   ic.in0 <- ic.in0 + 1;
   if c = '\r' then (
     (* Skip a possible CR *)
     TRY_WITH(fill_in_buf_or_Eof ic;%lwt
-             if Bytes.unsafe_get ic.in_buf ic.in0 = '\n' then
+             if unsafe_get_in_buf ic.in_buf ic.in0 = '\n' then
                ic.in0 <- ic.in0 + 1;
              return(false)
            , End_of_file -> return(false)))
@@ -196,20 +214,20 @@ let has_next_field ic =
 let rec seek_unquoted_separator ic i =
   if i >= ic.in1 then (
     (* End not found, need to look at the next chunk *)
-    Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    add_current_field_from_in_buf ic i;
     ic.in0 <- i;
     fill_in_buf_or_Eof ic;%lwt
     seek_unquoted_separator ic 0
   )
   else
-    let c = Bytes.unsafe_get ic.in_buf i in
+    let c = unsafe_get_in_buf ic.in_buf i in
     if c = ic.separator || c = '\n' || c = '\r' then (
       if Buffer.length ic.current_field = 0 then
         (* Avoid copying the string to the buffer if unnecessary *)
         ic.record <- ic.rstrip_substring ic.in_buf ic.in0 (i - ic.in0)
                     :: ic.record
       else (
-        Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+        add_current_field_from_in_buf ic i;
         ic.record <- ic.rstrip_contents ic.current_field :: ic.record
       );
       ic.in0 <- i;
@@ -228,21 +246,21 @@ let rec examine_quoted_field ic field_no after_final_quote
           ~after_bad_quote i =
   if i >= ic.in1 then (
     (* End of field not found, need to look at the next chunk *)
-     Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+    add_current_field_from_in_buf ic i;
     ic.in0 <- i;
     fill_in_buf_or_Eof ic;%lwt
     examine_quoted_field ic field_no after_final_quote ~after_bad_quote 0
   )
   else
-    let c = Bytes.unsafe_get ic.in_buf i in
+    let c = unsafe_get_in_buf ic.in_buf i in
     if c = '\"' then (
       after_final_quote := true;
       (* Save the field so far, without the quote *)
-      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      add_current_field_from_in_buf ic i;
       ic.in0 <- i + 1; (* skip the quote *)
       (* The field up to [ic.in0] is saved, can refill if needed. *)
       fill_in_buf_or_Eof ic;%lwt (* possibly update [ic.in0] *)
-      let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+      let c = unsafe_get_in_buf ic.in_buf ic.in0 in
       if c = ic.separator || c = '\n' || c = '\r' then (
         ic.record <- Buffer.contents ic.current_field :: ic.record;
         has_next_field ic
@@ -255,7 +273,7 @@ let rec examine_quoted_field ic field_no after_final_quote
         ic.in0 <- ic.in0 + 1;
         let len_field = Buffer.length ic.current_field in
         add_spaces ic;%lwt  (* [ic.in0 < ic.in1] or EOF *)
-        let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+        let c = unsafe_get_in_buf ic.in_buf ic.in0 in
         if after_bad_quote (* ⇒ [ic.fix] *)
            && (c = ic.separator || c = '\n' || c = '\r') then (
           (* space + separator, consider it closes the field. *)
@@ -287,7 +305,7 @@ let rec examine_quoted_field ic field_no after_final_quote
         let len_field = Buffer.length ic.current_field in
         Buffer.add_char ic.current_field '\"';
         add_spaces ic;%lwt  (* [ic.in0 < ic.in1] or EOF *)
-        let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+        let c = unsafe_get_in_buf ic.in_buf ic.in0 in
         if c = ic.separator || c = '\n' || c = '\r' then (
           (* Normal field termination ⇒ save field; after_final_quote=true *)
           ic.record <- Buffer.sub ic.current_field 0 len_field :: ic.record;
@@ -306,10 +324,10 @@ let rec examine_quoted_field ic field_no after_final_quote
     )
     else if ic.backslash_escape && c = '\\' then (
       (* Save the field so far, without the backslash: *)
-      Buffer.add_subbytes ic.current_field ic.in_buf ic.in0 (i - ic.in0);
+      add_current_field_from_in_buf ic i;
       ic.in0 <- i + 1; (* skip the backslash *)
       fill_in_buf_or_Eof ic;%lwt (* possibly update [ic.in0] *)
-      let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+      let c = unsafe_get_in_buf ic.in_buf ic.in0 in
       Buffer.add_char ic.current_field unescape.(Char.code c);
       ic.in0 <- ic.in0 + 1; (* skip the char [c]. *)
       examine_quoted_field ic field_no after_final_quote
@@ -342,7 +360,7 @@ let add_next_field ic field_no =
   TRY_WITH(
       add_spaces ic;%lwt
       (* Now, in0 < in1 or End_of_file was raised *)
-      let c = Bytes.unsafe_get ic.in_buf ic.in0 in
+      let c = unsafe_get_in_buf ic.in_buf ic.in0 in
       if c = '\"' then (
         ic.in0 <- ic.in0 + 1;
         Buffer.clear ic.current_field; (* remove spaces *)
@@ -352,7 +370,7 @@ let add_next_field ic field_no =
         ic.in0 <- ic.in0 + 1; (* mark '=' as read *)
         TRY_WITH(
             fill_in_buf_or_Eof ic;%lwt
-            if Bytes.unsafe_get ic.in_buf ic.in0 = '\"' then (
+            if unsafe_get_in_buf ic.in_buf ic.in0 = '\"' then (
               (* Excel trick ="..." to prevent spaces around the field
                  to  be removed. *)
               ic.in0 <- ic.in0 + 1; (* skip '"' *)
@@ -451,8 +469,8 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
   if separator = '\n' || separator = '\r' then
     invalid_arg "Csv (input): the separator cannot be '\\n' or '\\r'";
   let ic = {
-      in_chan = in_chan;
-      in_buf = Bytes.create buffer_len;
+      in_chan = (in_chan IF_EIO(:> Eio.Flow.source_ty Eio.Flow.source,));
+      in_buf = IF_EIO(Cstruct.create, Bytes.create) buffer_len;
       in0 = 0;
       in1 = 0;
       end_of_file = false;
@@ -468,7 +486,7 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
       (* Stripping *)
       is_space = (if separator = '\t' then is_real_space else is_space_or_tab);
       lstrip_buffer = (if strip then Buffer.clear else do_nothing);
-      rstrip_substring = (if strip then rstrip_substring else Bytes.sub_string);
+      rstrip_substring = (if strip then rstrip_substring else IF_EIO(in_buf_substring, Bytes.sub_string));
       rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
     } in
   if has_header then (
@@ -491,6 +509,10 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
 
 
 IF_LWT(let of_channel = of_in_obj,
+IF_EIO(
+let of_source = of_in_obj
+let of_channel = of_in_obj
+,
 let of_channel ?separator ?strip ?has_header ?header
                ?backslash_escape ?excel_tricks ?fix fh =
   of_in_obj ?separator ?strip ?has_header ?header
@@ -522,8 +544,9 @@ let of_string ?separator ?strip ?has_header ?header
                actual )
        method close_in() = ()
      end)
-)
+))
 
+IF_EIO(,
 let close_in ic =
   if ic.in1 >= 0 then begin
     ic.in0 <- 0;
@@ -532,9 +555,10 @@ let close_in ic =
            ic.in_chan#close_in();) (* may raise an exception *)
   end
   else return()
+)
 
 
-IF_LWT(,
+IF_LWT_EIO(,
 let to_in_obj ic =
 object
   val ic = ic
@@ -554,13 +578,15 @@ end
 )
 
 let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix fname =
+  IF_EIO(Eio.Path.with_open_in fname @@ fun fh ->
+  ,
   let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                 else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
-                            open_in fname)) in
+                            open_in fname)) in)
   let%lwt csv = (of_channel ?separator ?strip ?backslash_escape
                    ?excel_tricks ?fix fh) in
   let%lwt t = (input_all csv) in
-  close_in csv;%lwt
+  IF_EIO(,close_in csv;%lwt)
   return(t)
 
 let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ch =
@@ -568,7 +594,7 @@ let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ch =
                   ?excel_tricks ?fix ch) in
   input_all fh
 
-IF_LWT(,
+IF_LWT_EIO(,
 (* @deprecated *)
 let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix f ch =
   iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks
@@ -598,14 +624,14 @@ let escape =
     | c ->  c in
   Array.init 256 escape_of
 
-IF_LWT(,
+IF_LWT_EIO(,
 type std_out_channel = out_channel
 let std_close_out = close_out
 )
 
 (* FIXME: Rework this part *)
 type out_channel = {
-  out_chan : IF_LWT(Lwt_io.output_channel, out_obj_channel);
+  out_chan : IF_LWT(Lwt_io.output_channel, IF_EIO(Eio.Buf_write.t, out_obj_channel));
   out_separator : char;
   out_separator_bytes : Bytes.t;
   out_backslash_escape : bool;
@@ -627,7 +653,7 @@ let to_out_obj ?(separator=',') ?(backslash_escape=false) ?(excel_tricks=false)
   }
 
 
-IF_LWT(let to_channel = to_out_obj
+IF_LWT_EIO(let to_channel = to_out_obj
 ,
 let to_channel ?separator ?backslash_escape ?excel_tricks ?quote_all fh =
   to_out_obj ?separator ?backslash_escape ?excel_tricks ?quote_all
@@ -645,9 +671,14 @@ let to_buffer ?separator ?backslash_escape ?excel_tricks ?quote_all buf =
      end)
 )
 
+IF_EIO(,
 let close_out oc =
-  IF_LWT(Lwt_io.close oc.out_chan, oc.out_chan#close_out())
+  IF_LWT(Lwt_io.close oc.out_chan, oc.out_chan#close_out()))
 
+IF_EIO(
+let really_output oc s off len =
+  Eio.Buf_write.bytes oc.out_chan s ~off ~len
+,
 let rec really_output oc s ofs len =
   IF_LWT(
       Lwt_io.write_from oc.out_chan s ofs len >>= fun w ->
@@ -656,6 +687,7 @@ let rec really_output oc s ofs len =
     )
     if w < len then really_output oc s (ofs+w) (len-w)
     else return()
+)
 
 let quote_bytes = Bytes.make 1 '\"'
 let output_quote oc = really_output oc quote_bytes 0 1
@@ -753,25 +785,30 @@ let output_record oc = function
 let output_all oc t =
   IF_LWT(Lwt_list.iter_s, List.iter) (fun r -> output_record oc r) t
 
-let print ?separator ?backslash_escape ?excel_tricks ?quote_all t =
+let print ?separator ?backslash_escape ?excel_tricks ?quote_all IF_EIO(~stdout,) t =
+  IF_EIO(Eio.Buf_write.with_flow stdout @@ fun w ->,)
   let csv = to_channel ?separator ?backslash_escape
-              ?excel_tricks ?quote_all IF_LWT(Lwt_io.stdout, stdout) in
+              ?excel_tricks ?quote_all IF_LWT(Lwt_io.stdout, IF_EIO(w, stdout)) in
   output_all csv t;%lwt
-  IF_LWT(Lwt_io.flush Lwt_io.stdout, flush stdout)
+  IF_LWT(Lwt_io.flush Lwt_io.stdout, IF_EIO(Eio.Buf_write.flush w, flush stdout))
 
-IF_LWT(,
+IF_LWT_EIO(,
 let save_out ?separator ?backslash_escape ?excel_tricks ch t =
   let csv = to_channel ?separator ?backslash_escape ?excel_tricks ch in
   output_all csv t
 )
 
 let save ?separator ?backslash_escape ?excel_tricks ?quote_all fname t =
+  IF_EIO(
+    Eio.Path.with_open_out ~create:(`Or_truncate 0o666) fname @@ fun sink ->
+    Eio.Buf_write.with_flow sink @@ fun ch ->
+  ,
   let%lwt ch = (IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Output fname,
-                       open_out fname)) in
+                       open_out fname)) in)
   let csv = to_channel ?separator ?backslash_escape ?excel_tricks
               ?quote_all ch in
   output_all csv t;%lwt
-  IF_LWT(Lwt_io.close, std_close_out) ch
+  IF_EIO((), IF_LWT(Lwt_io.close, std_close_out) ch)
 
 (*
  * Reading rows with headers
@@ -833,13 +870,15 @@ module Rows = struct
 
   let load ?separator ?strip ?has_header ?header
            ?backslash_escape ?excel_tricks ?fix fname =
+    IF_EIO(Eio.Path.with_open_in fname @@ fun fh ->
+    ,
     let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                   else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
-                              open_in fname)) in
+                              open_in fname)) in)
     let%lwt csv = (of_channel ?separator ?strip ?has_header ?header
                      ?backslash_escape ?excel_tricks ?fix fh) in
     let%lwt t = (input_all csv) in
-    close_in csv;%lwt
+    IF_EIO(,close_in csv;%lwt)
     return(t)
 
 end
