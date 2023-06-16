@@ -34,7 +34,11 @@ let balanced_braces4 =
 
 let sub_std = [
     " +LWT_t", "";
+    ("IF_LWT_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "(* \\1 *)\\6");
     ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "(* \\1 *)\\6");
+    ("IF_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
      "(* \\1 *)\\6");
     ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
      "try \\1 with \\6");
@@ -47,14 +51,35 @@ let sub_std = [
 
 let sub_lwt = [
     " +LWT_t", " Lwt.t";
+    ("IF_LWT_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     " \\1(* \\6 *)");
     ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
      " \\1(* \\6 *)");
+    ("IF_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "(* \\1 *)\\6");
     ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
      "Lwt.catch (fun () -> \\1) (function \\6 | exn -> Lwt.fail exn)");
     ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
      "(\\2) >>= fun \\1 -> ");
     ";%lwt", " >>= fun () -> ";
     "raise", "Lwt.fail";
+  ]
+
+let sub_eio = [
+    " +LWT_t", "";
+    ("IF_LWT_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     " \\1(* \\6 *)");
+    ("IF_LWT(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "(* \\1 *)\\6");
+    ("IF_EIO(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     " \\1(* \\6 *)");
+    ("TRY_WITH(\\(" ^ balanced_braces4 ^"\\),\\(" ^ balanced_braces4 ^ "\\))",
+     "try \\1 with \\6");
+    (* Payload surrounded by braces to avoid absorbing "in" in \2 *)
+    ("let%lwt \\([a-z][a-zA-Z_]*\\) = (\\(" ^ balanced_braces4 ^ "\\)) in",
+     "let \\1 = \\2 in");
+    ";%lwt", ";";
+    "return\\b", "";
   ]
 
 let () =
@@ -65,8 +90,11 @@ let () =
     write ("src" / "csv.ml") (csv_std @ csv_mem);
   if Sys.file_exists "lwt" then
     write ("lwt" / "csv_lwt.ml") (substitute pp sub_lwt);
+  if Sys.file_exists "eio" then
+    write ("eio" / "csv_eio.ml") (substitute pp sub_eio);
   if Sys.file_exists "tests" then (
     let test = "tests" / "test.pp.ml" in
     write ("tests" / "test.ml") (substitute test sub_std);
-    write ("tests" / "test_lwt.ml") (substitute test sub_lwt)
+    write ("tests" / "test_lwt.ml") (substitute test sub_lwt);
+    write ("tests" / "test_eio.ml") (substitute test sub_eio)
   )

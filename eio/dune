@@ -1,0 +1,17 @@
+(library
+ (name        csv_eio)
+ (public_name csv-eio)
+ (modules     Csv_eio Csv_utils)
+ (flags       :standard -safe-string)
+ (libraries   bytes eio_main csv)
+ (synopsis "A pure OCaml library to read and write CSV files (EIO version)."))
+
+(rule
+ (targets csv_eio.ml)
+ (deps    ../src/csv.pp.ml ../src/csv_memory.ml ../config/pp.exe)
+ (action (chdir %{project_root} (run config/pp.exe))))
+
+(rule
+ (targets csv_utils.ml)
+ (deps    ../src/csv_utils.ml)
+ (action  (copy %{deps} %{targets})))

@@ -38,8 +38,19 @@
  (deps    (:p test_lwt.exe) (glob_files *.csv))
  (action  (run %{p})))
 
+(executables
+ (names     test_eio)
+ (modules   test_eio)
+ (libraries csv_eio eio_main))
+
+(alias
+ (name    runtest)
+ (package csv-eio)
+ (deps    (:p test_eio.exe) (glob_files *.csv))
+ (action  (run %{p})))
+
 
 (rule
- (targets test.ml test_lwt.ml)
+ (targets test.ml test_lwt.ml test_eio.ml)
  (deps   test.pp.ml ../config/pp.exe)
  (action (chdir %{project_root} (run config/pp.exe))))
