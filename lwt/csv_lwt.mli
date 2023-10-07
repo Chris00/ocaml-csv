@@ -31,18 +31,18 @@ type in_channel
 val of_channel : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
-                 ?fix:bool ->
+                 ?fix:bool -> ?skip_bom:bool ->
                  Lwt_io.input_channel -> in_channel Lwt.t
 (** See {!Csv.of_in_obj}. *)
 
 val load : ?separator:char -> ?strip: bool ->
            ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
-           string -> t Lwt.t
+           ?skip_bom:bool -> string -> t Lwt.t
 (** See {!Csv.load} *)
 
 val load_in : ?separator:char -> ?strip: bool ->
               ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
-              Lwt_io.input_channel -> t Lwt.t
+               ?skip_bom:bool -> Lwt_io.input_channel -> t Lwt.t
 (** See {!Csv.load_in}. *)
 
 val close_in : in_channel -> unit Lwt.t
@@ -127,7 +127,7 @@ module Rows : sig
   val load : ?separator:char -> ?strip: bool ->
              ?has_header: bool -> ?header: string list ->
              ?backslash_escape: bool -> ?excel_tricks:bool ->
-             ?fix: bool ->
+             ?fix: bool -> ?skip_bom:bool ->
              string -> Row.t list Lwt.t
   (** See {!Csv.load}. *)
 

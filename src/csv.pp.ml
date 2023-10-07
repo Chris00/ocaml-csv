@@ -156,9 +156,10 @@ let fill_in_buf_or_Eof ic =
     IF_LWT(Lwt_io.read_into ic.in_chan ic.in_buf 0 buffer_len >>= fun len ->
            if len = 0 then (
              ic.end_of_file <- true;
-             Lwt.fail End_of_file
-           )
-           else (ic.in1 <- len; Lwt.return())
+             Lwt.fail End_of_file)
+           else (
+            ic.in1 <- len;
+            return())
            ,
            try
              ic.in1 <- IF_EIO(Eio.Flow.single_read ic.in_chan ic.in_buf, ic.in_chan#input ic.in_buf 0 buffer_len);
@@ -166,7 +167,20 @@ let fill_in_buf_or_Eof ic =
              ic.end_of_file <- true;
              raise End_of_file)
   end
-  IF_LWT(else Lwt.return(),)
+  IF_LWT(else return(),)
+
+(* [fill_in_buf_up_to_len_if_possible chan len] calls [fill_in_buf_or_Eof chan]
+   until the buffer contains at least [len] bytes OR EOF is reached.  *)
+let fill_in_buf_up_to_len_if_possible ic len =
+  (* Unroll first iteration to avoid setting up exception trap if unnecessary *)
+  if ic.in1 - ic.in0 >= len then return()
+  else TRY_WITH(
+    let rec loop () =
+      fill_in_buf_or_Eof ic;%lwt
+      if ic.in1 - ic.in0 >= len then return() else loop ()
+    in
+    loop ()
+  , End_of_file -> return())
 
 (* Add chars to [ic.current_field] from [ic.in_buf.[i]] as long as they
    satisfy [predicate].  *)
@@ -465,6 +479,7 @@ let fold_right ~f ic a0 =
 
 let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
               ?(backslash_escape=false) ?(excel_tricks=true) ?(fix=false)
+              ?(skip_bom=true)
               in_chan =
   if separator = '\n' || separator = '\r' then
     invalid_arg "Csv (input): the separator cannot be '\\n' or '\\r'";
@@ -488,7 +503,28 @@ let of_in_obj ?(separator=',') ?(strip=true) ?(has_header=false) ?header
       lstrip_buffer = (if strip then Buffer.clear else do_nothing);
       rstrip_substring = (if strip then rstrip_substring else IF_EIO(in_buf_substring, Bytes.sub_string));
       rstrip_contents = (if strip then rstrip_contents else Buffer.contents);
-    } in
+    }
+  in
+  (if skip_bom then (
+    (* Longest BOM is 4 bytes long *)
+    fill_in_buf_up_to_len_if_possible ic 4;%lwt
+    ignore (Array.exists (fun bom ->
+      let length = String.length bom in
+      if ic.in1 - ic.in0 < length then false
+      else
+        let idx = ref 0 in
+        let equal =
+          String.for_all (fun c ->
+            let b = IF_EIO(Cstruct.get,Bytes.get) ic.in_buf !idx in
+            incr idx;
+            Char.equal b c)
+          bom
+        in
+        if equal then ic.in0 <- ic.in0 + length;
+        equal)
+      boms);
+    return()
+  ) else return());%lwt
   if has_header then (
     (* Try to initialize headers with the first record that is read. *)
     TRY_WITH(
@@ -514,9 +550,9 @@ let of_source = of_in_obj
 let of_channel = of_in_obj
 ,
 let of_channel ?separator ?strip ?has_header ?header
-               ?backslash_escape ?excel_tricks ?fix fh =
+               ?backslash_escape ?excel_tricks ?fix ?skip_bom fh =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks ?fix
+            ?backslash_escape ?excel_tricks ?fix ?skip_bom
     (object
        val fh = fh
        method input s ofs len =
@@ -529,9 +565,9 @@ let of_channel ?separator ?strip ?has_header ?header
      end)
 
 let of_string ?separator ?strip ?has_header ?header
-              ?backslash_escape ?excel_tricks ?fix str =
+              ?backslash_escape ?excel_tricks ?fix ?skip_bom str =
   of_in_obj ?separator ?strip ?has_header ?header
-            ?backslash_escape ?excel_tricks ?fix
+            ?backslash_escape ?excel_tricks ?fix ?skip_bom
     (object
        val mutable position = 0
        method input buf ofs len =
@@ -577,28 +613,28 @@ object
 end
 )
 
-let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix fname =
+let load ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?skip_bom fname =
   IF_EIO(Eio.Path.with_open_in fname @@ fun fh ->
   ,
   let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                 else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                             open_in fname)) in)
   let%lwt csv = (of_channel ?separator ?strip ?backslash_escape
-                   ?excel_tricks ?fix fh) in
+                   ?excel_tricks ?fix ?skip_bom fh) in
   let%lwt t = (input_all csv) in
   IF_EIO(,close_in csv;%lwt)
   return(t)
 
-let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ch =
+let load_in ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?skip_bom ch =
   let%lwt fh = (of_channel ?separator ?strip ?backslash_escape
-                  ?excel_tricks ?fix ch) in
+                  ?excel_tricks ?fix ?skip_bom ch) in
   input_all fh
 
 IF_LWT_EIO(,
 (* @deprecated *)
-let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix f ch =
+let load_rows ?separator ?strip ?backslash_escape ?excel_tricks ?fix ?skip_bom f ch =
   iter ~f (of_channel ?separator ?strip ?backslash_escape ?excel_tricks
-             ?fix ch)
+             ?fix ?skip_bom ch)
 )
 
 (*
@@ -869,14 +905,14 @@ module Rows = struct
     IF_LWT(Lwt_list.fold_left_s,List.fold_left) (fun a r -> f r a) a0 lr
 
   let load ?separator ?strip ?has_header ?header
-           ?backslash_escape ?excel_tricks ?fix fname =
+           ?backslash_escape ?excel_tricks ?fix ?skip_bom fname =
     IF_EIO(Eio.Path.with_open_in fname @@ fun fh ->
     ,
     let%lwt fh = (if fname = "-" then IF_LWT(return(Lwt_io.stdin), stdin)
                   else IF_LWT(Lwt_io.open_file ~mode:Lwt_io.Input fname,
                               open_in fname)) in)
     let%lwt csv = (of_channel ?separator ?strip ?has_header ?header
-                     ?backslash_escape ?excel_tricks ?fix fh) in
+                     ?backslash_escape ?excel_tricks ?fix ?skip_bom fh) in
     let%lwt t = (input_all csv) in
     IF_EIO(,close_in csv;%lwt)
     return(t)

@@ -89,7 +89,7 @@ type in_channel
 val of_in_obj : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
-                ?fix:bool ->
+                ?fix:bool -> ?skip_bom:bool ->
                 in_obj_channel -> in_channel
 (** [of_in_obj ?separator ?excel_tricks in_chan] creates a new "channel"
     to access the data in CSV form available from the channel [in_chan].
@@ -129,12 +129,17 @@ val of_in_obj : ?separator:char -> ?strip: bool ->
     @param fix Parses the CSV data without raising the exception
     [Csv.Failure].  If the data does not conform to the CSV format
     (e.g. because of badly escaped quotes), try to repair it.
-    Default: [false].  *)
+    Default: [false].
+
+    @param skip_bom Skips the Unicode BOM sequence if present. It consists
+    of 2 bytes (UTF-16), 3 bytes (UTF-8), or 4 bytes (UTF-32) at
+    the start of the file. The default is [true].
+    *)
 
 val of_channel : ?separator:char -> ?strip: bool ->
                  ?has_header: bool -> ?header: string list ->
                  ?backslash_escape: bool -> ?excel_tricks:bool ->
-                 ?fix: bool ->
+                 ?fix: bool -> ?skip_bom:bool ->
                  std_in_channel -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       standard channel.
@@ -144,14 +149,14 @@ val of_channel : ?separator:char -> ?strip: bool ->
 val of_string : ?separator:char -> ?strip: bool ->
                 ?has_header: bool -> ?header: string list ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
-                ?fix: bool ->
+                ?fix: bool -> ?skip_bom:bool ->
                 string -> in_channel
   (** Same as {!Csv.of_in_obj} except that the data is read from a
       string. *)
 
 val load : ?separator:char -> ?strip: bool ->
            ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix:bool ->
-           string -> t
+            ?skip_bom:bool -> string -> t
   (** [load fname] loads the CSV file [fname].  If [filename] is ["-"]
       then load from [stdin].
 
@@ -174,7 +179,7 @@ val load : ?separator:char -> ?strip: bool ->
 
 val load_in : ?separator:char -> ?strip: bool ->
               ?backslash_escape: bool -> ?excel_tricks:bool -> ?fix: bool ->
-              std_in_channel -> t
+               ?skip_bom:bool -> std_in_channel -> t
   (** [load_in ch] loads a CSV file from the input channel [ch].
       See {!Csv.load} for the meaning of [separator] and [excel_tricks]. *)
 
@@ -227,7 +232,7 @@ val current_record : in_channel -> string list
 
 val load_rows : ?separator:char -> ?strip: bool ->
                 ?backslash_escape: bool -> ?excel_tricks:bool ->
-                ?fix: bool ->
+                ?fix: bool -> ?skip_bom:bool ->
                 (string list -> unit) -> std_in_channel -> unit
   [@@deprecated "Use Csv.iter on on a Csv.in_channel"]
   (** @deprecated use {!Csv.iter} on a {!Csv.in_channel} created with
@@ -392,7 +397,7 @@ module Rows : sig
   val load : ?separator:char -> ?strip: bool ->
              ?has_header: bool -> ?header: string list ->
              ?backslash_escape: bool -> ?excel_tricks:bool ->
-             ?fix: bool ->
+             ?fix: bool -> ?skip_bom:bool ->
              string -> Row.t list
   (** See {!Csv.load} and {!Csv.of_in_obj} for the optional parameters.
      Note that [has_header] is false by default to have a uniform

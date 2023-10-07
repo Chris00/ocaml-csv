@@ -147,3 +147,11 @@ let unescape =
     | 'Z' -> '\026' (* Ctrl + Z, used by MySQL. *)
     | c -> c (* unchanged *) in
   Array.init 256 escaped_by
+
+let boms = [|
+  "\xEF\xBB\xBF";     (* UTF-8 *)
+  "\xFE\xFF";         (* UTF-16 BE *)
+  "\xFF\xFE";         (* UTF-16 LE *)
+  "\x00\x00\xFE\xFF"; (* UTF-32 BE *)
+  "\xFF\xFE\x00\x00"  (* UTF-32 LE *)
+|]
