@@ -7,9 +7,9 @@ let print =
   in
   fun csv -> List.iter print_assoc csv
 
-let testcsv ?check_bom filename expected =
+let testcsv ?skip_bom filename expected =
   try
-    let csv = Csv.Rows.load ?check_bom ~separator:';' filename in
+    let csv = Csv.Rows.load ?skip_bom ~separator:';' filename in
     let csv = List.map Csv.Row.to_assoc csv in
     if csv <> expected then (
       printf "input file: %s\n" filename;
@@ -26,5 +26,5 @@ let testcsv ?check_bom filename expected =
     failwith "failed"
 
 let () =
-  testcsv "testcsv13.csv" ~check_bom:true
+  testcsv "testcsv13.csv" ~skip_bom:true
     [ [ ("", "A\n"); ("", "B\n") ]; [ ("", "1"); ("", "2") ] ]
