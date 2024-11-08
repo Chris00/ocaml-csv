@@ -1,7 +1,5 @@
 PKGVERSION = $(shell git describe --always --dirty)
 
-WEB = san@math.umons.ac.be:~/public_html/software/
-
 build:
 	dune build @install examples/example.exe -j 4
 
@@ -17,11 +15,6 @@ doc: build
 	  _build/default/_doc/_html/csv/Csv/index.html \
 	  _build/default/_doc/_html/csv-lwt/Csv_lwt/index.html
 
-
-upload-doc: doc
-	scp -C -p -r _build/default/_doc/csv/ $(WEB)
-	scp -C -p -r _build/default/_doc/csv-lwt/ $(WEB)
-	scp -C -p _build/default/_doc/odoc.css $(WEB)
 
 csvtool: build
 	dune exec csvtool pastecol 1-3 2,1,2 \
@@ -47,4 +40,4 @@ submit:
 	cd packages && git add csv csv-lwt
 #	CONDUIT_TLS=native dune-release opam submit -n csv -n csv-lwt
 
-.PHONY: build tests install uninstall doc upload-doc clean csvtool example submit
+.PHONY: build tests install uninstall doc clean csvtool example submit

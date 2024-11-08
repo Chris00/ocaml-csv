@@ -1,6 +1,6 @@
 #							-*-conf-unix-*-
 _build
-TODO
+IDEAS.org
 .merlin
 *.install
 data/

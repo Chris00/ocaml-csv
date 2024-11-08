@@ -59,8 +59,9 @@ Documentation
 -------------
 
 The documentation for the `Csv` (resp. `Csv_lwt`) module can be
-found [online](https://math.umons.ac.be/anum/software/csv/)
-(resp. [here](https://math.umons.ac.be/anum/software/csv-lwt/)) or in
+found [online](https://ocaml.org/p/csv/latest/doc/Csv/index.html)
+(resp. [here](https://ocaml.org/p/csv-lwt/latest/doc/Csv_lwt/index.html))
+or in
 [csv.mli](src/csv.mli) (resp. [csv_lwt.mli](lwt/csv_lwt.mli)).
 
 Also see the [examples](examples/).
