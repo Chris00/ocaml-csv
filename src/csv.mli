@@ -346,6 +346,10 @@ module Row : sig
   (** [find row header] return the value of the colum labelled with
       [header] (or [""] if no such header has been declared).  *)
 
+  val find_opt : t -> string -> string option
+  (** [find row header] return the value of the colum labelled with
+      [header] (or [None] if no such header has been declared).  *)
+
   val to_list : t -> string list
   (** [to_list row] convert [row] to the usual representation, the
       list being in the column order. *)

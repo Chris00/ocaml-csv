@@ -93,6 +93,10 @@ module Row = struct
     try t.row.(Header.find t.header key)
     with _ -> ""
 
+  let find_opt t key =
+    try Some (t.row.(Header.find t.header key))
+    with _ -> None
+
   let to_list t = Array.to_list t.row
 
   let to_assoc t =
